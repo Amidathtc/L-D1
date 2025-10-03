@@ -1,7 +1,7 @@
 import express, { type Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
+// import rateLimit from "express-rate-limit";
 import { config } from "./config/env";
 import routes from "./routes/index";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
@@ -20,13 +20,13 @@ app.use(
 );
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: "Too many requests from this IP, please try again later.",
-});
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100, // Limit each IP to 100 requests per windowMs
+//   message: "Too many requests from this IP, please try again later.",
+// });
 
-app.use("/api/", limiter);
+// app.use("/api/", limiter);
 
 // Body parser
 app.use(express.json({ limit: "10mb" }));
