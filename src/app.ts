@@ -3,8 +3,10 @@ import cors from "cors";
 import helmet from "helmet";
 // import rateLimit from "express-rate-limit";
 import { config } from "./config/env";
-import routes from "./routes/index";
+// import routes from "./routes/index";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
+import router from "./routes";
+// import router from "./routes/index";
 
 const app: Application = express();
 
@@ -39,7 +41,9 @@ app.get("/health", (req, res) => {
 
 // API routes
 console.log("Mounting API routes...");
-app.use("/api", routes);
+console.log("🟡 Routes type:", typeof router);
+
+app.use("/api", router);
 console.log("API routes mounted successfully");
 
 // Debug: List all routes
