@@ -1,0 +1,438 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  ADMIN
+  BRANCH_MANAGER
+  CREDIT_OFFICER
+}
+
+enum LoanStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+  WRITTEN_OFF
+  CANCELED
+}
+
+enum TermUnit {
+  DAY
+  WEEK
+  MONTH
+}
+
+enum ScheduleStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum RepaymentMethod {
+  CASH
+  TRANSFER
+  POS
+  MOBILE
+  USSD
+  OTHER
+}
+
+// ---------- Core ----------
+
+model Branch {
+  id          String  @id @default(cuid())
+  name        String
+  code        String  @unique
+  managerId   String? @unique
+  manager     User?   @relation("BranchManager", fields: [managerId], references: [id])
+
+  users       User[]  @relation("UserBranch")
+  customers   Customer[]
+  loans       Loan[]
+  
+  // History relations
+  oldLoanBranches LoanAssignmentHistory[] @relation("OldLoanBranch")
+  newLoanBranches LoanAssignmentHistory[] @relation("NewLoanBranch")
+  oldCustomerBranches CustomerReassignment[] @relation("OldCustBranch")
+  newCustomerBranches CustomerReassignment[] @relation("NewCustBranch")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([name])
+}
+
+model User {
+  id            String @id @default(cuid())
+  email         String @unique
+  passwordHash  String
+  role          Role
+  isActive      Boolean @default(true)
+
+  // Staff belong to a branch if BM or Credit Officer
+  branchId      String?
+  branch        Branch? @relation("UserBranch", fields: [branchId], references: [id])
+
+  // Relationships
+  managedBranch Branch? @relation("BranchManager")
+  createdLoans  Loan[]        @relation("LoanCreatedBy")
+  assignedLoans Loan[]        @relation("LoanAssignedOfficer")
+  currentCustomers Customer[]  @relation("CurrentOfficer")
+  repayments    Repayment[]
+  sessions      StaffSession[]
+  auditLogs     AuditLog[]    @relation("ActorLogs")
+  uploadedCustDocs CustomerDocument[] @relation("CustDocUploadedBy")
+  uploadedLoanDocs LoanDocument[]     @relation("LoanDocUploadedBy")
+  
+  // History relations
+  oldLoanAssignments LoanAssignmentHistory[] @relation("OldOfficer")
+  newLoanAssignments LoanAssignmentHistory[] @relation("NewOfficer")
+  changedLoanAssignments LoanAssignmentHistory[] @relation("LoanAssignmentChanger")
+  oldCustomerAssignments CustomerReassignment[] @relation("OldCustOfficer")
+  newCustomerAssignments CustomerReassignment[] @relation("NewCustOfficer")
+  changedCustomerAssignments CustomerReassignment[] @relation("CustomerReassignmentChanger")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+}
+
+model Customer {
+  id               String @id @default(cuid())
+  code             String? @unique
+  firstName        String
+  lastName         String
+  phone            String?
+  email            String?
+  address          String?
+
+  branchId         String
+  branch           Branch  @relation(fields: [branchId], references: [id])
+
+  currentOfficerId String?
+  currentOfficer   User?   @relation("CurrentOfficer", fields: [currentOfficerId], references: [id])
+
+  documents        CustomerDocument[]
+  loans            Loan[]
+  reassignments    CustomerReassignment[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+
+  @@index([branchId])
+  @@index([currentOfficerId])
+}
+
+model LoanType {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  minAmount   Decimal @db.Decimal(14, 2)
+  maxAmount   Decimal @db.Decimal(14, 2)
+  isActive    Boolean @default(true)
+
+  loans       Loan[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+}
+
+model Loan {
+  id                         String      @id @default(cuid())
+  loanNumber                 String      @unique
+  customerId                 String
+  customer                   Customer    @relation(fields: [customerId], references: [id])
+
+  branchId                   String
+  branch                     Branch      @relation(fields: [branchId], references: [id])
+
+  loanTypeId                 String?
+  loanType                   LoanType?   @relation(fields: [loanTypeId], references: [id])
+
+  principalAmount            Decimal     @db.Decimal(14, 2)
+  currencyCode               String      @default("NGN")
+
+  termCount                  Int
+  termUnit                   TermUnit
+
+  startDate                  DateTime
+  endDate                    DateTime?
+
+  // Fees set on loan creation
+  processingFeeAmount        Decimal     @db.Decimal(14, 2)
+  processingFeeCollected     Boolean     @default(false)
+  penaltyFeePerDayAmount     Decimal     @db.Decimal(14, 2)
+
+  status                     LoanStatus  @default(DRAFT)
+
+  // Who created and who currently owns the loan operationally
+  createdByUserId            String
+  createdBy                  User        @relation("LoanCreatedBy", fields: [createdByUserId], references: [id])
+
+  assignedOfficerId          String
+  assignedOfficer            User        @relation("LoanAssignedOfficer", fields: [assignedOfficerId], references: [id])
+
+  disbursedAt                DateTime?
+  closedAt                   DateTime?
+  notes                      String?
+
+  scheduleItems              RepaymentScheduleItem[]
+  repayments                 Repayment[]
+  documents                  LoanDocument[]
+  assignmentHistory          LoanAssignmentHistory[]
+
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  deletedAt                  DateTime?
+
+  @@index([customerId])
+  @@index([branchId])
+  @@index([assignedOfficerId])
+  @@index([status])
+}
+
+model RepaymentScheduleItem {
+  id            String        @id @default(cuid())
+  loanId        String
+  loan          Loan          @relation(fields: [loanId], references: [id])
+
+  sequence      Int
+  dueDate       DateTime
+
+  principalDue  Decimal       @db.Decimal(14, 2)
+  interestDue   Decimal       @default(0) @db.Decimal(14, 2)
+  feeDue        Decimal       @default(0) @db.Decimal(14, 2)
+
+  totalDue      Decimal       @db.Decimal(14, 2)
+  paidAmount    Decimal       @default(0) @db.Decimal(14, 2)
+
+  status        ScheduleStatus @default(PENDING)
+  closedAt      DateTime?
+
+  allocations   RepaymentAllocation[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@unique([loanId, sequence])
+  @@index([loanId, dueDate])
+}
+
+model Repayment {
+  id               String   @id @default(cuid())
+  loanId           String
+  loan             Loan     @relation(fields: [loanId], references: [id])
+
+  receivedByUserId String
+  receivedBy       User     @relation(fields: [receivedByUserId], references: [id])
+
+  amount           Decimal  @db.Decimal(14, 2)
+  currencyCode     String   @default("NGN")
+
+  paidAt           DateTime
+  method           RepaymentMethod
+  reference        String?
+  notes            String?
+
+  allocations      RepaymentAllocation[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+
+  @@index([loanId, paidAt])
+  @@index([receivedByUserId])
+}
+
+model RepaymentAllocation {
+  id               String @id @default(cuid())
+
+  repaymentId      String
+  repayment        Repayment @relation(fields: [repaymentId], references: [id])
+
+  scheduleItemId   String
+  scheduleItem     RepaymentScheduleItem @relation(fields: [scheduleItemId], references: [id])
+
+  amount           Decimal @db.Decimal(14, 2)
+  createdAt        DateTime @default(now())
+
+  @@unique([repaymentId, scheduleItemId])
+  @@index([scheduleItemId])
+}
+
+model LoanAssignmentHistory {
+  id             String  @id @default(cuid())
+  loanId         String
+  loan           Loan    @relation(fields: [loanId], references: [id])
+
+  oldOfficerId   String?
+  newOfficerId   String
+  oldOfficer     User?   @relation("OldOfficer", fields: [oldOfficerId], references: [id])
+  newOfficer     User    @relation("NewOfficer", fields: [newOfficerId], references: [id])
+
+  oldBranchId    String?
+  newBranchId    String?
+  oldBranch      Branch? @relation("OldLoanBranch", fields: [oldBranchId], references: [id])
+  newBranch      Branch? @relation("NewLoanBranch", fields: [newBranchId], references: [id])
+
+  changedByUserId String
+  changedBy       User   @relation("LoanAssignmentChanger", fields: [changedByUserId], references: [id])
+
+  reason         String?
+  changedAt      DateTime @default(now())
+
+  @@index([loanId, changedAt])
+}
+
+model CustomerReassignment {
+  id               String  @id @default(cuid())
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id])
+
+  oldBranchId      String?
+  newBranchId      String
+  oldBranch        Branch? @relation("OldCustBranch", fields: [oldBranchId], references: [id])
+  newBranch        Branch  @relation("NewCustBranch", fields: [newBranchId], references: [id])
+
+  oldOfficerId     String?
+  newOfficerId     String?
+  oldOfficer       User?   @relation("OldCustOfficer", fields: [oldOfficerId], references: [id])
+  newOfficer       User?   @relation("NewCustOfficer", fields: [newOfficerId], references: [id])
+
+  changedByUserId  String
+  changedBy        User    @relation("CustomerReassignmentChanger", fields: [changedByUserId], references: [id])
+
+  reason           String?
+  previousOfficerEndAt DateTime?
+  newOfficerStartAt    DateTime?
+  changedAt        DateTime @default(now())
+
+  @@index([customerId, changedAt])
+}
+
+// ---------- Documents ----------
+
+model DocumentType {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  customerDocs CustomerDocument[]
+  loanDocs     LoanDocument[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+}
+
+model CustomerDocument {
+  id               String  @id @default(cuid())
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id])
+
+  documentTypeId   String
+  documentType     DocumentType @relation(fields: [documentTypeId], references: [id])
+
+  fileUrl          String
+  issuingAuthority String?
+  issueDate        DateTime?
+  expiryDate       DateTime?
+  verified         Boolean @default(false)
+  verificationNotes String?
+
+  uploadedByUserId String
+  uploadedBy       User @relation("CustDocUploadedBy", fields: [uploadedByUserId], references: [id])
+
+  uploadedAt       DateTime @default(now())
+  deletedAt        DateTime?
+
+  @@index([customerId])
+  @@index([documentTypeId])
+}
+
+model LoanDocument {
+  id               String  @id @default(cuid())
+  loanId           String
+  loan             Loan @relation(fields: [loanId], references: [id])
+
+  documentTypeId   String
+  documentType     DocumentType @relation(fields: [documentTypeId], references: [id])
+
+  fileUrl          String
+  issuingAuthority String?
+  issueDate        DateTime?
+  expiryDate       DateTime?
+  verified         Boolean @default(false)
+  verificationNotes String?
+
+  uploadedByUserId String
+  uploadedBy       User @relation("LoanDocUploadedBy", fields: [uploadedByUserId], references: [id])
+
+  uploadedAt       DateTime @default(now())
+  deletedAt        DateTime?
+
+  @@index([loanId])
+  @@index([documentTypeId])
+}
+
+// ---------- Auth and audit ----------
+
+model StaffSession {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  jwtId      String   @unique
+  userAgent  String?
+  ipAddress  String?
+
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  actor        User?    @relation("ActorLogs", fields: [actorUserId], references: [id])
+
+  action       String   // e.g. LOAN_CREATED, CUSTOMER_REASSIGNED, DELETE_CONFIRMED
+  entityName   String   // e.g. Loan, Customer, Repayment
+  entityId     String   // target id
+
+  before       Json?
+  after        Json?
+  metadata     Json?
+
+  ipAddress    String?
+  userAgent    String?
+
+  createdAt    DateTime @default(now())
+
+  @@index([entityName, entityId])
+  @@index([createdAt])
+}
