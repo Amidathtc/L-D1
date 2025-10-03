@@ -15,34 +15,32 @@ const router = Router();
 // All user routes require authentication and admin role
 router.use(authenticate, requireAdmin);
 
-router.post(
-  "/",
-  validate(createUserSchema),
-  auditLog("USER_CREATED", "User"),
-  UserController.createUser
-);
+router
+  .route("/")
+  .post(
+    validate(createUserSchema),
+    auditLog("USER_CREATED", "User"),
+    UserController.createUser
+  );
 
-router.get("/", validate(getUsersSchema), UserController.getUsers);
+router.route("/").get(validate(getUsersSchema), UserController.getUsers);
 
-router.get("/:id", UserController.getUserById);
+router.route("/:id").get(UserController.getUserById);
 
-router.put(
-  "/:id",
-  validate(updateUserSchema),
-  auditLog("USER_UPDATED", "User"),
-  UserController.updateUser
-);
+router
+  .route("/:id")
+  .put(
+    validate(updateUserSchema),
+    auditLog("USER_UPDATED", "User"),
+    UserController.updateUser
+  );
 
-router.delete(
-  "/:id",
-  auditLog("USER_DELETED", "User"),
-  UserController.deleteUser
-);
+router
+  .route("/:id")
+  .delete(auditLog("USER_DELETED", "User"), UserController.deleteUser);
 
-router.put(
-  "/:id/reset-password",
-  auditLog("PASSWORD_RESET", "User"),
-  UserController.resetPassword
-);
+router
+  .route("/:id/reset-password")
+  .put(auditLog("PASSWORD_RESET", "User"), UserController.resetPassword);
 
 export default router;

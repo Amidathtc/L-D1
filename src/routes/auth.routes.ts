@@ -11,23 +11,26 @@ import {
 const router = Router();
 
 // Test route to verify auth routes are working
-router.get("/test", (req, res) => {
+router.route("/test").get((req, res) => {
   res.json({
     message: "Auth routes are working",
     timestamp: new Date().toISOString(),
   });
 });
 
-router.post("/register", validate(registerSchema), AuthController.register);
-router.post("/login", validate(loginSchema), AuthController.login);
-router.post("/logout", authenticate, AuthController.logout);
-router.post("/refresh", AuthController.refreshToken);
-router.get("/me", authenticate, AuthController.getProfile);
-router.put(
-  "/change-password",
-  authenticate,
-  validate(changePasswordSchema),
-  AuthController.changePassword
-);
+router
+  .route("/register")
+  .post(validate(registerSchema), AuthController.register);
+router.route("/login").post(validate(loginSchema), AuthController.login);
+router.route("/logout").post(authenticate, AuthController.logout);
+router.route("/refresh").post(AuthController.refreshToken);
+router.route("/me").get(authenticate, AuthController.getProfile);
+router
+  .route("/change-password")
+  .put(
+    authenticate,
+    validate(changePasswordSchema),
+    AuthController.changePassword
+  );
 
 export default router;
