@@ -10,6 +10,14 @@ import {
 
 const router = Router();
 
+// Test route to verify auth routes are working
+router.get("/test", (req, res) => {
+  res.json({
+    message: "Auth routes are working",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 router.post("/register", validate(registerSchema), AuthController.register);
 router.post("/login", validate(loginSchema), AuthController.login);
 router.post("/logout", authenticate, AuthController.logout);
