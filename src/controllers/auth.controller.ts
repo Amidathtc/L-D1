@@ -4,6 +4,18 @@ import { AuthService } from "../service/auth.service";
 import { JwtUtil } from "../utils/jwt.util";
 
 export class AuthController {
+  static async register(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password } = req.body;
+
+      const result = await AuthService.register(email, password);
+
+      return ApiResponseUtil.success(res, result, result.message);
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
       const { email, password } = req.body;

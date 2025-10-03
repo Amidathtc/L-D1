@@ -5,10 +5,12 @@ import { validate } from "../middlewares/validation.middleware";
 import {
   loginSchema,
   changePasswordSchema,
+  registerSchema,
 } from "../validators/auth.validator";
 
 const router = Router();
 
+router.post("/register", validate(registerSchema), AuthController.register);
 router.post("/login", validate(loginSchema), AuthController.login);
 router.post("/logout", authenticate, AuthController.logout);
 router.post("/refresh", AuthController.refreshToken);

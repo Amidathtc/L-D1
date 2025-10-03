@@ -1,9 +1,73 @@
 import { PasswordUtil } from "../utils/password.util";
 import { JwtUtil } from "../utils/jwt.util";
-import { Role } from "@prisma/client";
 import prisma from "../prismaClient";
 
+// Define Role enum locally to avoid import issues
+enum Role {
+  ADMIN = "ADMIN",
+  BRANCH_MANAGER = "BRANCH_MANAGER",
+  CREDIT_OFFICER = "CREDIT_OFFICER",
+}
+
 export class AuthService {
+  static async register(email: string, password: string) {
+    // Check if any admin already exists
+    const existingAdmin = await prisma.user.findFirst({
+      where: {
+        role: Role.ADMIN,
+        deletedAt: null,
+      },
+    });
+
+    if (existingAdmin) {
+      throw new Error(
+        "Admin registration is not allowed. An admin already exists."
+      );
+    }
+
+    // Validate email doesn't exist
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new Error("Email already exists");
+    }
+
+    // Validate password
+    const validation = PasswordUtil.validate(password);
+    if (!validation.valid) {
+      throw new Error(validation.message);
+    }
+
+    const passwordHash = await PasswordUtil.hash(password);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        role: Role.ADMIN,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      message: "Admin registered successfully",
+    };
+  }
+
   static async login(
     email: string,
     password: string,
