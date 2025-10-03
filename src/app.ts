@@ -38,7 +38,9 @@ app.get("/health", (req, res) => {
 });
 
 // API routes
+console.log("Mounting API routes...");
 app.use("/api", routes);
+console.log("API routes mounted successfully");
 
 // Debug: List all routes
 app._router.stack.forEach((middleware: any) => {

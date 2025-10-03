@@ -10,6 +10,9 @@ import {
 
 const router = Router();
 
+// Debug line to verify auth routes are loaded
+console.log("Auth routes module loaded");
+
 // Test route to verify auth routes are working
 router.route("/test").get((req, res) => {
   res.json({

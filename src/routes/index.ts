@@ -14,6 +14,15 @@ const router = Router();
 // Add this debug line
 console.log("Routes module loaded");
 
+// Test route to verify main routes are working
+router.get("/test", (req, res) => {
+  res.json({
+    message: "Main routes are working",
+    timestamp: new Date().toISOString(),
+    availableRoutes: ["/auth", "/users", "/branches", "/customers", "/loans"],
+  });
+});
+
 // Mount routes
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
