@@ -11,6 +11,9 @@ import auditLogRoutes from "./auditLog.routes";
 
 const router = Router();
 
+// Add this debug line
+console.log("Routes module loaded");
+
 // Mount routes
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);

@@ -40,6 +40,19 @@ app.get("/health", (req, res) => {
 // API routes
 app.use("/api", routes);
 
+// Debug: List all routes
+app._router.stack.forEach((middleware: any) => {
+  if (middleware.route) {
+    console.log("Route:", middleware.route.path);
+  } else if (middleware.name === "router") {
+    middleware.handle.stack.forEach((handler: any) => {
+      if (handler.route) {
+        console.log("Nested route:", handler.route.path);
+      }
+    });
+  }
+});
+
 // Static files for uploads
 app.use("/uploads", express.static("uploads"));
 
