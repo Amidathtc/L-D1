@@ -8,6 +8,7 @@ import loanTypeRoutes from "./loanType.routes";
 import repaymentRoutes from "./repayment.routes";
 import documentRoutes from "./document.routes";
 import auditLogRoutes from "./auditLog.routes";
+import settingsRoutes from "./settings.routes";
 
 const router = Router();
 
@@ -33,5 +34,6 @@ router.use("/loan-types", loanTypeRoutes);
 router.use("/repayments", repaymentRoutes);
 router.use("/documents", documentRoutes);
 router.use("/audit-logs", auditLogRoutes);
+router.use("/settings", settingsRoutes);
 
 export default router;
