@@ -3,7 +3,6 @@ import prisma from "../prismaClient";
 
 interface CreateBranchData {
   name: string;
-  code: string;
   managerId?: string;
 }
 
@@ -15,14 +14,8 @@ interface UpdateBranchData {
 
 export class BranchService {
   static async createBranch(data: CreateBranchData) {
-    // Check if code already exists
-    const existingBranch = await prisma.branch.findUnique({
-      where: { code: data.code },
-    });
-
-    if (existingBranch) {
-      throw new Error("Branch code already exists");
-    }
+    // Generate unique branch code
+    const code = await this.generateBranchCode();
 
     // Validate manager if provided
     if (data.managerId) {
@@ -56,7 +49,7 @@ export class BranchService {
     const branch = await prisma.branch.create({
       data: {
         name: data.name,
-        code: data.code,
+        code: code,
         managerId: data.managerId,
       },
       include: {
@@ -334,5 +327,49 @@ export class BranchService {
       totalDisbursed: totalDisbursed._sum.principalAmount || 0,
       totalRepaid: totalRepaid._sum.amount || 0,
     };
+  }
+
+  // Generate unique branch code
+  private static async generateBranchCode(): Promise<string> {
+    let code: string;
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    do {
+      // Generate code based on current count + 1
+      const branchCount = await prisma.branch.count({
+        where: { deletedAt: null },
+      });
+
+      const nextNumber = branchCount + 1;
+      code = `BR${nextNumber.toString().padStart(3, "0")}`;
+
+      // Check if code already exists
+      const existingBranch = await prisma.branch.findUnique({
+        where: { code },
+      });
+
+      isUnique = !existingBranch;
+      attempts++;
+
+      if (!isUnique && attempts < maxAttempts) {
+        // If code exists, try with timestamp suffix
+        const timestamp = Date.now().toString().slice(-3);
+        code = `BR${nextNumber.toString().padStart(2, "0")}${timestamp}`;
+
+        const existingBranchWithTimestamp = await prisma.branch.findUnique({
+          where: { code },
+        });
+
+        isUnique = !existingBranchWithTimestamp;
+      }
+    } while (!isUnique && attempts < maxAttempts);
+
+    if (!isUnique) {
+      throw new Error("Unable to generate unique branch code");
+    }
+
+    return code;
   }
 }
