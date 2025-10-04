@@ -10,6 +10,7 @@ import {
 import {
   requireAdmin,
   requireBranchManager,
+  requireStaff,
 } from "../middlewares/role.middleware";
 
 const router = Router();
@@ -24,9 +25,9 @@ router.post(
   BranchController.createBranch
 );
 
-router.get("/", requireBranchManager, BranchController.getBranches);
+router.get("/", requireStaff, BranchController.getBranches);
 
-router.get("/:id", requireBranchManager, BranchController.getBranchById);
+router.get("/:id", requireStaff, BranchController.getBranchById);
 
 router.get("/:id/stats", requireBranchManager, BranchController.getBranchStats);
 

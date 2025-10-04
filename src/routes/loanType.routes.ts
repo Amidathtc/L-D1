@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { LoanTypeController } from "../controllers/loanType.controller";
 import { authenticate } from "../middlewares/auth.middleware";
-import { requireAdmin } from "../middlewares/role.middleware";
+import { requireAdmin, requireStaff } from "../middlewares/role.middleware";
 import { validate } from "../middlewares/validation.middleware";
 import { auditLog } from "../middlewares/audit.middleware";
 import {
@@ -13,9 +13,9 @@ const router = Router();
 
 router.use(authenticate);
 
-// All users can view loan types
-router.get("/", LoanTypeController.getLoanTypes);
-router.get("/:id", LoanTypeController.getLoanTypeById);
+// All staff can view loan types
+router.get("/", requireStaff, LoanTypeController.getLoanTypes);
+router.get("/:id", requireStaff, LoanTypeController.getLoanTypeById);
 
 // Only admins can manage loan types
 router.post(

@@ -8,28 +8,31 @@ import {
   updateUserSchema,
   getUsersSchema,
 } from "../validators/user.validator";
-import { requireAdmin } from "../middlewares/role.middleware";
+import { requireAdmin, requireStaff } from "../middlewares/role.middleware";
 
 const router = Router();
 
-// All user routes require authentication and admin role
-router.use(authenticate, requireAdmin);
+// All user routes require authentication
+router.use(authenticate);
 
+// Read operations - allow all staff (admin, branch manager, credit officer)
+router.route("/").get(validate(getUsersSchema), UserController.getUsers);
+router.route("/:id").get(UserController.getUserById);
+
+// Write operations - admin only
 router
   .route("/")
   .post(
+    requireAdmin,
     validate(createUserSchema),
     auditLog("USER_CREATED", "User"),
     UserController.createUser
   );
 
-router.route("/").get(validate(getUsersSchema), UserController.getUsers);
-
-router.route("/:id").get(UserController.getUserById);
-
 router
   .route("/:id")
   .put(
+    requireAdmin,
     validate(updateUserSchema),
     auditLog("USER_UPDATED", "User"),
     UserController.updateUser
@@ -37,10 +40,18 @@ router
 
 router
   .route("/:id")
-  .delete(auditLog("USER_DELETED", "User"), UserController.deleteUser);
+  .delete(
+    requireAdmin,
+    auditLog("USER_DELETED", "User"),
+    UserController.deleteUser
+  );
 
 router
   .route("/:id/reset-password")
-  .put(auditLog("PASSWORD_RESET", "User"), UserController.resetPassword);
+  .put(
+    requireAdmin,
+    auditLog("PASSWORD_RESET", "User"),
+    UserController.resetPassword
+  );
 
 export default router;

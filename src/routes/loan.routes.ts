@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { LoanController } from "../controllers/loan.controller";
 import { authenticate } from "../middlewares/auth.middleware";
-import { requireBranchManager } from "../middlewares/role.middleware";
+import {
+  requireBranchManager,
+  requireStaff,
+} from "../middlewares/role.middleware";
 import { validate } from "../middlewares/validation.middleware";
 import { auditLog } from "../middlewares/audit.middleware";
 import {
@@ -18,21 +21,23 @@ router.use(authenticate);
 
 router.post(
   "/",
+  requireStaff,
   validate(createLoanSchema),
   auditLog("LOAN_CREATED", "Loan"),
   LoanController.createLoan
 );
 
-router.get("/", LoanController.getLoans);
+router.get("/", requireStaff, LoanController.getLoans);
 
-router.get("/:id", LoanController.getLoanById);
+router.get("/:id", requireStaff, LoanController.getLoanById);
 
-router.get("/:id/schedule", LoanController.getLoanSchedule);
+router.get("/:id/schedule", requireStaff, LoanController.getLoanSchedule);
 
-router.get("/:id/summary", LoanController.getLoanSummary);
+router.get("/:id/summary", requireStaff, LoanController.getLoanSummary);
 
 router.put(
   "/:id",
+  requireStaff,
   validate(updateLoanSchema),
   auditLog("LOAN_UPDATED", "Loan"),
   LoanController.updateLoan

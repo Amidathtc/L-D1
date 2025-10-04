@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { RepaymentController } from "../controllers/repayment.controller";
 import { authenticate } from "../middlewares/auth.middleware";
-import { requireBranchManager } from "../middlewares/role.middleware";
+import {
+  requireBranchManager,
+  requireStaff,
+} from "../middlewares/role.middleware";
 import { validate } from "../middlewares/validation.middleware";
 import { auditLog } from "../middlewares/audit.middleware";
 import {
@@ -15,17 +18,19 @@ router.use(authenticate);
 
 router.post(
   "/",
+  requireStaff,
   validate(createRepaymentSchema),
   auditLog("REPAYMENT_CREATED", "Repayment"),
   RepaymentController.createRepayment
 );
 
-router.get("/", RepaymentController.getRepayments);
+router.get("/", requireStaff, RepaymentController.getRepayments);
 
-router.get("/:id", RepaymentController.getRepaymentById);
+router.get("/:id", requireStaff, RepaymentController.getRepaymentById);
 
 router.put(
   "/:id",
+  requireStaff,
   validate(updateRepaymentSchema),
   auditLog("REPAYMENT_UPDATED", "Repayment"),
   RepaymentController.updateRepayment
@@ -39,11 +44,16 @@ router.delete(
 );
 
 // Repayment schedule routes
-router.get("/schedules", RepaymentController.getRepaymentSchedules);
+router.get(
+  "/schedules",
+  requireStaff,
+  RepaymentController.getRepaymentSchedules
+);
 router.get(
   "/schedules/:loanId",
+  requireStaff,
   RepaymentController.getRepaymentScheduleByLoan
 );
-router.get("/summary", RepaymentController.getRepaymentSummary);
+router.get("/summary", requireStaff, RepaymentController.getRepaymentSummary);
 
 export default router;
