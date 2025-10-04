@@ -17,25 +17,57 @@ export class DocumentService {
 
   static async createDocumentType(data: {
     name: string;
-    code: string;
     description?: string;
   }) {
-    // Check if document type with same name or code already exists
-    const existingType = await prisma.documentType.findFirst({
+    // Generate a unique code based on the name
+    const generateCode = (name: string): string => {
+      // Convert name to uppercase, remove spaces and special characters
+      const baseCode = name
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .substring(0, 8); // Limit to 8 characters
+
+      return baseCode;
+    };
+
+    let code = generateCode(data.name);
+    let counter = 1;
+    let finalCode = code;
+
+    // Check if code already exists and generate unique one
+    while (true) {
+      const existingType = await prisma.documentType.findFirst({
+        where: {
+          code: finalCode,
+          deletedAt: null,
+        },
+      });
+
+      if (!existingType) {
+        break;
+      }
+
+      // If code exists, append a number
+      finalCode = `${code}${counter.toString().padStart(2, "0")}`;
+      counter++;
+    }
+
+    // Check if document type with same name already exists
+    const existingName = await prisma.documentType.findFirst({
       where: {
-        OR: [{ name: data.name }, { code: data.code }],
+        name: data.name,
         deletedAt: null,
       },
     });
 
-    if (existingType) {
-      throw new Error("Document type with this name or code already exists");
+    if (existingName) {
+      throw new Error("Document type with this name already exists");
     }
 
     const documentType = await prisma.documentType.create({
       data: {
         name: data.name,
-        code: data.code,
+        code: finalCode,
         description: data.description,
         isActive: true,
       },

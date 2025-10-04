@@ -65,15 +65,14 @@ export class DocumentController {
     next: NextFunction
   ) {
     try {
-      const { name, code, description } = req.body;
+      const { name, description } = req.body;
 
-      if (!name || !code) {
-        return ApiResponseUtil.error(res, "Name and code are required", 400);
+      if (!name) {
+        return ApiResponseUtil.error(res, "Name is required", 400);
       }
 
       const documentType = await DocumentService.createDocumentType({
         name,
-        code,
         description,
       });
 
