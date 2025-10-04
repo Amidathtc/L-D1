@@ -35,7 +35,11 @@ export const config = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: process.env.CORS_ORIGIN || [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://app.millenniumpotters.com.ng",
+    ],
   },
   upload: {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE || "5242880", 10),
