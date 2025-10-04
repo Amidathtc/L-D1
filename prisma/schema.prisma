@@ -147,6 +147,12 @@ model LoanType {
 
   minAmount   Decimal @db.Decimal(14, 2)
   maxAmount   Decimal @db.Decimal(14, 2)
+  
+  // Term configuration
+  termUnit    TermUnit @default(MONTH)
+  minTerm     Int     @default(1)  // Minimum term (always 1)
+  maxTerm     Int     @default(12) // Maximum term
+  
   isActive    Boolean @default(true)
 
   loans       Loan[]

@@ -6,6 +6,9 @@ interface CreateLoanTypeData {
   description?: string;
   minAmount: number;
   maxAmount: number;
+  termUnit: "DAY" | "WEEK" | "MONTH";
+  minTerm: number;
+  maxTerm: number;
 }
 
 interface UpdateLoanTypeData {
@@ -13,6 +16,9 @@ interface UpdateLoanTypeData {
   description?: string;
   minAmount?: number;
   maxAmount?: number;
+  termUnit?: "DAY" | "WEEK" | "MONTH";
+  minTerm?: number;
+  maxTerm?: number;
   isActive?: boolean;
 }
 
@@ -33,6 +39,9 @@ export class LoanTypeService {
         description: data.description,
         minAmount: new Decimal(data.minAmount),
         maxAmount: new Decimal(data.maxAmount),
+        termUnit: data.termUnit,
+        minTerm: data.minTerm,
+        maxTerm: data.maxTerm,
       },
       include: {
         _count: {
@@ -155,6 +164,9 @@ export class LoanTypeService {
           data.maxAmount !== undefined
             ? new Decimal(data.maxAmount)
             : undefined,
+        termUnit: data.termUnit,
+        minTerm: data.minTerm,
+        maxTerm: data.maxTerm,
         isActive: data.isActive,
       },
       include: {
