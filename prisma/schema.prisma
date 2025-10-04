@@ -72,6 +72,11 @@ model Branch {
   oldCustomerBranches CustomerReassignment[] @relation("OldCustBranch")
   newCustomerBranches CustomerReassignment[] @relation("NewCustBranch")
 
+  // New relations for enhanced features
+  transferFrom BranchTransfer[] @relation("TransferFromBranch")
+  transferTo   BranchTransfer[] @relation("TransferToBranch")
+  analytics    BranchAnalytics[]
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
@@ -94,6 +99,18 @@ model User {
   branchId      String?
   branch        Branch? @relation("UserBranch", fields: [branchId], references: [id])
 
+  // Profile fields
+  firstName     String?
+  lastName      String?
+  phone         String?
+  address       String?
+  profileImage  String?
+  
+  // Activity tracking
+  lastLoginAt   DateTime?
+  lastActivityAt DateTime?
+  loginCount    Int      @default(0)
+
   // Relationships
   managedBranch Branch? @relation("BranchManager")
   createdLoans  Loan[]        @relation("LoanCreatedBy")
@@ -113,6 +130,13 @@ model User {
   newCustomerAssignments CustomerReassignment[] @relation("NewCustOfficer")
   changedCustomerAssignments CustomerReassignment[] @relation("CustomerReassignmentChanger")
 
+  // New relations for enhanced features
+  loginHistory  UserLoginHistory[]
+  notes         UserNote[]
+  branchTransfers BranchTransfer[]
+  createdBranchTransfers BranchTransfer[] @relation("BranchTransferCreatedBy")
+  createdNotes  UserNote[] @relation("NoteCreatedBy")
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   deletedAt     DateTime?
@@ -122,6 +146,8 @@ model User {
   @@index([branchId])
   @@index([isActive])
   @@index([deletedAt])
+  @@index([firstName, lastName])
+  @@index([lastLoginAt])
 }
 
 model Customer {
@@ -466,4 +492,122 @@ model AuditLog {
 
   @@index([entityName, entityId])
   @@index([createdAt])
+}
+
+// Enhanced features models
+
+model UserLoginHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  loginAt     DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean  @default(true)
+  failureReason String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([loginAt])
+}
+
+model UserNote {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  title       String
+  content     String
+  category    String?  // e.g., "general", "performance", "customer_feedback"
+  isPrivate   Boolean  @default(false)
+  
+  createdByUserId String
+  createdBy   User     @relation("NoteCreatedBy", fields: [createdByUserId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([category])
+  @@index([createdAt])
+}
+
+model BranchTransfer {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  fromBranchId    String?
+  fromBranch      Branch?  @relation("TransferFromBranch", fields: [fromBranchId], references: [id])
+  toBranchId      String
+  toBranch        Branch   @relation("TransferToBranch", fields: [toBranchId], references: [id])
+  
+  reason          String?
+  transferDate    DateTime @default(now())
+  effectiveDate   DateTime
+  
+  createdByUserId String
+  createdBy       User     @relation("BranchTransferCreatedBy", fields: [createdByUserId], references: [id])
+  
+  // Data migration tracking
+  customersTransferred Int @default(0)
+  loansTransferred     Int @default(0)
+  repaymentsTransferred Int @default(0)
+  
+  status          String   @default("pending") // pending, completed, failed
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([fromBranchId])
+  @@index([toBranchId])
+  @@index([status])
+  @@index([transferDate])
+}
+
+model BranchAnalytics {
+  id              String   @id @default(cuid())
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  
+  // Performance metrics
+  totalUsers      Int      @default(0)
+  activeUsers     Int      @default(0)
+  totalCustomers  Int      @default(0)
+  totalLoans      Int      @default(0)
+  activeLoans     Int      @default(0)
+  totalLoanAmount Decimal  @default(0) @db.Decimal(14, 2)
+  outstandingAmount Decimal @default(0) @db.Decimal(14, 2)
+  
+  // Revenue tracking
+  monthlyRevenue  Decimal  @default(0) @db.Decimal(14, 2)
+  quarterlyRevenue Decimal @default(0) @db.Decimal(14, 2)
+  yearlyRevenue   Decimal  @default(0) @db.Decimal(14, 2)
+  
+  // Activity metrics
+  dailyLogins     Int      @default(0)
+  weeklyLogins    Int      @default(0)
+  monthlyLogins   Int      @default(0)
+  
+  // Collection metrics
+  collectionRate  Decimal  @default(0) @db.Decimal(5, 2) // percentage
+  overdueLoans    Int      @default(0)
+  defaultedLoans  Int      @default(0)
+  
+  // Period tracking
+  periodStart     DateTime
+  periodEnd       DateTime
+  periodType      String   // daily, weekly, monthly, quarterly, yearly
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([periodType])
+  @@index([periodStart])
+  @@index([periodEnd])
 }

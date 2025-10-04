@@ -72,4 +72,51 @@ export class UserController {
       next(error);
     }
   }
+
+  static async bulkUserOperation(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { userIds, operation, data } = req.body;
+      const operatorId = req.user!.id;
+
+      const result = await UserService.bulkUserOperation(
+        { userIds, operation, data },
+        operatorId
+      );
+
+      return ApiResponseUtil.success(
+        res,
+        result,
+        "Bulk operation completed successfully"
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async exportUsers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const users = await UserService.exportUsers(req.query);
+
+      return ApiResponseUtil.success(res, users, "Users exported successfully");
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async importUsers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { users } = req.body;
+      const importerId = req.user!.id;
+
+      const result = await UserService.importUsers(users, importerId);
+
+      return ApiResponseUtil.success(res, result, "Users import completed");
+    } catch (error: any) {
+      next(error);
+    }
+  }
 }

@@ -54,4 +54,22 @@ router
     UserController.resetPassword
   );
 
+// Bulk operations - admin only
+router.post(
+  "/bulk-operation",
+  requireAdmin,
+  auditLog("BULK_USER_OPERATION", "User"),
+  UserController.bulkUserOperation
+);
+
+// Export/Import operations - admin only
+router.get("/export", requireAdmin, UserController.exportUsers);
+
+router.post(
+  "/import",
+  requireAdmin,
+  auditLog("USERS_IMPORTED", "User"),
+  UserController.importUsers
+);
+
 export default router;

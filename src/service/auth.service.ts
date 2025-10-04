@@ -1,5 +1,6 @@
 import { PasswordUtil } from "../utils/password.util";
 import { JwtUtil } from "../utils/jwt.util";
+import { UserActivityService } from "./user-activity.service";
 import prisma from "../prismaClient";
 
 // Define Role enum locally to avoid import issues
@@ -98,8 +99,19 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
+      // Track failed login attempt
+      await UserActivityService.trackLogin(
+        user.id,
+        ipAddress,
+        userAgent,
+        false,
+        "Invalid password"
+      );
       throw new Error("Invalid credentials");
     }
+
+    // Track successful login
+    await UserActivityService.trackLogin(user.id, ipAddress, userAgent, true);
 
     const tokenPayload = {
       userId: user.id,

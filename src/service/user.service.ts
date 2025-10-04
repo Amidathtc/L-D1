@@ -7,6 +7,10 @@ interface CreateUserData {
   password: string;
   role: Role;
   branchId?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  address?: string;
 }
 
 interface UpdateUserData {
@@ -14,6 +18,24 @@ interface UpdateUserData {
   role?: Role;
   branchId?: string | null;
   isActive?: boolean;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  address?: string;
+}
+
+interface BulkUserOperation {
+  userIds: string[];
+  operation:
+    | "activate"
+    | "deactivate"
+    | "changeRole"
+    | "assignBranch"
+    | "unassignBranch";
+  data?: {
+    role?: Role;
+    branchId?: string;
+  };
 }
 
 interface GetUsersFilters {
@@ -77,6 +99,10 @@ export class UserService {
         passwordHash,
         role: data.role,
         branchId: data.branchId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
+        address: data.address,
       },
       select: {
         id: true,
@@ -84,6 +110,10 @@ export class UserService {
         role: true,
         isActive: true,
         branchId: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        address: true,
         branch: {
           select: {
             id: true,
@@ -329,5 +359,275 @@ export class UserService {
         revokedAt: new Date(),
       },
     });
+  }
+
+  static async bulkUserOperation(
+    operation: BulkUserOperation,
+    operatorId: string
+  ) {
+    try {
+      const { userIds, operation: op, data } = operation;
+
+      if (!userIds || userIds.length === 0) {
+        throw new Error("No users selected for operation");
+      }
+
+      // Validate operator permissions
+      const operator = await prisma.user.findUnique({
+        where: { id: operatorId },
+        select: { role: true },
+      });
+
+      if (!operator || operator.role !== "ADMIN") {
+        throw new Error("Only admins can perform bulk operations");
+      }
+
+      // Validate all users exist
+      const users = await prisma.user.findMany({
+        where: {
+          id: { in: userIds },
+          deletedAt: null,
+        },
+        select: { id: true, email: true, role: true },
+      });
+
+      if (users.length !== userIds.length) {
+        throw new Error("Some users not found");
+      }
+
+      let updateData: any = {};
+      let result: any = {};
+
+      switch (op) {
+        case "activate":
+          updateData = { isActive: true };
+          result = await prisma.user.updateMany({
+            where: { id: { in: userIds } },
+            data: updateData,
+          });
+          break;
+
+        case "deactivate":
+          updateData = { isActive: false };
+          result = await prisma.user.updateMany({
+            where: { id: { in: userIds } },
+            data: updateData,
+          });
+          break;
+
+        case "changeRole":
+          if (!data?.role) {
+            throw new Error("Role is required for changeRole operation");
+          }
+          updateData = { role: data.role };
+          result = await prisma.user.updateMany({
+            where: { id: { in: userIds } },
+            data: updateData,
+          });
+          break;
+
+        case "assignBranch":
+          if (!data?.branchId) {
+            throw new Error("Branch ID is required for assignBranch operation");
+          }
+          // Validate branch exists
+          const branch = await prisma.branch.findUnique({
+            where: { id: data.branchId },
+          });
+          if (!branch) {
+            throw new Error("Branch not found");
+          }
+          updateData = { branchId: data.branchId };
+          result = await prisma.user.updateMany({
+            where: { id: { in: userIds } },
+            data: updateData,
+          });
+          break;
+
+        case "unassignBranch":
+          updateData = { branchId: null };
+          result = await prisma.user.updateMany({
+            where: { id: { in: userIds } },
+            data: updateData,
+          });
+          break;
+
+        default:
+          throw new Error("Invalid operation");
+      }
+
+      return {
+        success: true,
+        operation: op,
+        affectedUsers: result.count,
+        userIds,
+      };
+    } catch (error: any) {
+      throw new Error(error.message || "Bulk operation failed");
+    }
+  }
+
+  static async exportUsers(filters: GetUsersFilters) {
+    try {
+      const where: any = {
+        deletedAt: null,
+      };
+
+      if (filters.role) {
+        where.role = filters.role;
+      }
+
+      if (filters.branchId) {
+        where.branchId = filters.branchId;
+      }
+
+      if (filters.isActive !== undefined) {
+        where.isActive = filters.isActive;
+      }
+
+      if (filters.search) {
+        where.OR = [
+          {
+            email: {
+              contains: filters.search,
+              mode: "insensitive",
+            },
+          },
+          {
+            firstName: {
+              contains: filters.search,
+              mode: "insensitive",
+            },
+          },
+          {
+            lastName: {
+              contains: filters.search,
+              mode: "insensitive",
+            },
+          },
+        ];
+      }
+
+      const users = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          address: true,
+          role: true,
+          isActive: true,
+          branchId: true,
+          lastLoginAt: true,
+          loginCount: true,
+          createdAt: true,
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return users;
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to export users");
+    }
+  }
+
+  static async importUsers(usersData: any[], importerId: string) {
+    try {
+      // Validate importer permissions
+      const importer = await prisma.user.findUnique({
+        where: { id: importerId },
+        select: { role: true },
+      });
+
+      if (!importer || importer.role !== "ADMIN") {
+        throw new Error("Only admins can import users");
+      }
+
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as string[],
+      };
+
+      for (const userData of usersData) {
+        try {
+          // Validate required fields
+          if (!userData.email || !userData.password || !userData.role) {
+            results.failed++;
+            results.errors.push(
+              `User ${userData.email || "unknown"}: Missing required fields`
+            );
+            continue;
+          }
+
+          // Check if user already exists
+          const existingUser = await prisma.user.findUnique({
+            where: { email: userData.email },
+          });
+
+          if (existingUser) {
+            results.failed++;
+            results.errors.push(`User ${userData.email}: Email already exists`);
+            continue;
+          }
+
+          // Validate password
+          const validation = PasswordUtil.validate(userData.password);
+          if (!validation.valid) {
+            results.failed++;
+            results.errors.push(
+              `User ${userData.email}: ${validation.message}`
+            );
+            continue;
+          }
+
+          // Validate branch if provided
+          if (userData.branchId) {
+            const branch = await prisma.branch.findUnique({
+              where: { id: userData.branchId },
+            });
+            if (!branch) {
+              results.failed++;
+              results.errors.push(`User ${userData.email}: Branch not found`);
+              continue;
+            }
+          }
+
+          // Create user
+          await prisma.user.create({
+            data: {
+              email: userData.email,
+              passwordHash: await PasswordUtil.hash(userData.password),
+              role: userData.role,
+              branchId: userData.branchId,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              phone: userData.phone,
+              address: userData.address,
+            },
+          });
+
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push(
+            `User ${userData.email || "unknown"}: ${error.message}`
+          );
+        }
+      }
+
+      return results;
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to import users");
+    }
   }
 }
