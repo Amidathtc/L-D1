@@ -42,14 +42,8 @@ export class UserService {
       throw new Error(validation.message);
     }
 
-    // Validate branch assignment for non-admin roles
-    if (data.role !== Role.ADMIN && !data.branchId) {
-      throw new Error(
-        "Branch Manager and Credit Officer must be assigned to a branch"
-      );
-    }
-
-    // Validate branch exists
+    // Branch assignment is optional - users can be created without branches
+    // and assigned to branches later
     if (data.branchId) {
       const branch = await prisma.branch.findUnique({
         where: { id: data.branchId },
@@ -57,6 +51,21 @@ export class UserService {
 
       if (!branch || branch.deletedAt) {
         throw new Error("Branch not found");
+      }
+
+      // Check if branch manager already exists for this branch
+      if (data.role === Role.BRANCH_MANAGER) {
+        const existingManager = await prisma.user.findFirst({
+          where: {
+            role: Role.BRANCH_MANAGER,
+            branchId: data.branchId,
+            deletedAt: null,
+          },
+        });
+
+        if (existingManager) {
+          throw new Error("Branch already has a manager");
+        }
       }
     }
 
