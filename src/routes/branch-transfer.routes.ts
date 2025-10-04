@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { BranchTransferController } from "../controllers/branch-transfer.controller";
 import { authenticate } from "../middlewares/auth.middleware";
-import { requireRole } from "../middlewares/role.middleware";
+import {
+  requireAdmin,
+  requireAdminOrManager,
+} from "../middlewares/role.middleware";
+import { Role } from "@prisma/client";
 
 const router = Router();
 
@@ -9,37 +13,29 @@ const router = Router();
 router.use(authenticate);
 
 // Create branch transfer (Admin only)
-router.post(
-  "/",
-  requireRole(["ADMIN"]),
-  BranchTransferController.createTransfer
-);
+router.post("/", requireAdmin, BranchTransferController.createTransfer);
 
 // Execute branch transfer (Admin only)
 router.post(
   "/:id/execute",
-  requireRole(["ADMIN"]),
+  requireAdmin,
   BranchTransferController.executeTransfer
 );
 
 // Cancel branch transfer (Admin only)
 router.post(
   "/:id/cancel",
-  requireRole(["ADMIN"]),
+  requireAdmin,
   BranchTransferController.cancelTransfer
 );
 
 // Get all branch transfers (Admin and Branch Manager)
-router.get(
-  "/",
-  requireRole(["ADMIN", "BRANCH_MANAGER"]),
-  BranchTransferController.getTransfers
-);
+router.get("/", requireAdminOrManager, BranchTransferController.getTransfers);
 
 // Get specific branch transfer (Admin and Branch Manager)
 router.get(
   "/:id",
-  requireRole(["ADMIN", "BRANCH_MANAGER"]),
+  requireAdminOrManager,
   BranchTransferController.getTransferById
 );
 

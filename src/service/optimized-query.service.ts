@@ -208,7 +208,7 @@ export class OptimizedQueryService {
               role: true,
             },
           },
-          createdByUser: {
+          createdBy: {
             select: {
               id: true,
               email: true,
@@ -321,7 +321,7 @@ export class OptimizedQueryService {
       prisma.loan.count({
         where: {
           deletedAt: null,
-          status: { in: ["OVERDUE", "DEFAULTED"] },
+          status: { in: ["DEFAULTED", "WRITTEN_OFF"] },
         },
       }),
       prisma.loan.aggregate({
@@ -386,7 +386,7 @@ export class OptimizedQueryService {
         skip,
         take: limit,
         include: {
-          actorUser: {
+          actor: {
             select: {
               id: true,
               email: true,
@@ -462,7 +462,7 @@ export class OptimizedQueryService {
               },
             },
           },
-          receivedByUser: {
+          receivedBy: {
             select: {
               id: true,
               email: true,

@@ -157,7 +157,9 @@ export class BranchAnalyticsService {
         prisma.repayment
           .aggregate({
             where: {
-              branchId,
+              loan: {
+                branchId,
+              },
               createdAt: {
                 gte: new Date(now.getFullYear(), now.getMonth(), 1),
                 lt: new Date(now.getFullYear(), now.getMonth() + 1, 1),
@@ -172,7 +174,9 @@ export class BranchAnalyticsService {
         prisma.repayment
           .aggregate({
             where: {
-              branchId,
+              loan: {
+                branchId,
+              },
               createdAt: {
                 gte: new Date(
                   now.getFullYear(),
@@ -195,7 +199,9 @@ export class BranchAnalyticsService {
         prisma.repayment
           .aggregate({
             where: {
-              branchId,
+              loan: {
+                branchId,
+              },
               createdAt: {
                 gte: new Date(now.getFullYear(), 0, 1),
                 lt: new Date(now.getFullYear() + 1, 0, 1),
@@ -244,7 +250,7 @@ export class BranchAnalyticsService {
             branchId,
             deletedAt: null,
             status: "DEFAULTED",
-            dueDate: {
+            endDate: {
               lt: now,
             },
           },
@@ -262,7 +268,9 @@ export class BranchAnalyticsService {
       // Calculate collection rate
       const totalRepayments = await prisma.repayment.aggregate({
         where: {
-          branchId,
+          loan: {
+            branchId,
+          },
           createdAt: {
             gte: periodStart,
             lt: periodEnd,
@@ -290,80 +298,88 @@ export class BranchAnalyticsService {
       });
 
       const expectedAmount =
-        (expectedRepayments._sum.principalDue || 0) +
-        (expectedRepayments._sum.interestDue || 0);
-      const actualAmount = totalRepayments._sum.amount || 0;
+        Number(expectedRepayments._sum.principalDue || 0) +
+        Number(expectedRepayments._sum.interestDue || 0);
+      const actualAmount = Number(totalRepayments._sum.amount || 0);
       const collectionRate =
         expectedAmount > 0 ? (actualAmount / expectedAmount) * 100 : 0;
 
       // Create or update analytics record
-      const analytics = await prisma.branchAnalytics.upsert({
+      const existingAnalytics = await prisma.branchAnalytics.findFirst({
         where: {
-          branchId_periodType_periodStart: {
-            branchId,
-            periodType,
-            periodStart,
-          },
-        },
-        update: {
-          totalUsers,
-          activeUsers,
-          totalCustomers,
-          totalLoans,
-          activeLoans,
-          totalLoanAmount,
-          outstandingAmount,
-          monthlyRevenue,
-          quarterlyRevenue,
-          yearlyRevenue,
-          dailyLogins,
-          weeklyLogins,
-          monthlyLogins,
-          collectionRate,
-          overdueLoans,
-          defaultedLoans,
-          periodEnd,
-        },
-        create: {
           branchId,
-          totalUsers,
-          activeUsers,
-          totalCustomers,
-          totalLoans,
-          activeLoans,
-          totalLoanAmount,
-          outstandingAmount,
-          monthlyRevenue,
-          quarterlyRevenue,
-          yearlyRevenue,
-          dailyLogins,
-          weeklyLogins,
-          monthlyLogins,
-          collectionRate,
-          overdueLoans,
-          defaultedLoans,
-          periodStart,
-          periodEnd,
           periodType,
-        },
-        include: {
-          branch: {
-            select: {
-              id: true,
-              name: true,
-              code: true,
-            },
-          },
+          periodStart,
         },
       });
 
-      return analytics;
+      let analytics;
+      if (existingAnalytics) {
+        analytics = await prisma.branchAnalytics.update({
+          where: { id: existingAnalytics.id },
+          data: {
+            totalUsers,
+            activeUsers,
+            totalCustomers,
+            totalLoans,
+            activeLoans,
+            totalLoanAmount,
+            outstandingAmount,
+            monthlyRevenue,
+            quarterlyRevenue,
+            yearlyRevenue,
+            dailyLogins,
+            weeklyLogins,
+            monthlyLogins,
+            collectionRate,
+            overdueLoans,
+            defaultedLoans,
+            periodEnd,
+          },
+        });
+      } else {
+        analytics = await prisma.branchAnalytics.create({
+          data: {
+            branchId,
+            totalUsers,
+            activeUsers,
+            totalCustomers,
+            totalLoans,
+            activeLoans,
+            totalLoanAmount,
+            outstandingAmount,
+            monthlyRevenue,
+            quarterlyRevenue,
+            yearlyRevenue,
+            dailyLogins,
+            weeklyLogins,
+            monthlyLogins,
+            collectionRate,
+            overdueLoans,
+            defaultedLoans,
+            periodStart,
+            periodEnd,
+            periodType,
+          },
+        });
+      }
+
+      return {
+        ...analytics,
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      };
     } catch (error: any) {
       throw new Error(error.message || "Failed to generate branch analytics");
     }
   }
 
-  static async getBranchAnalytics(filters: BranchAnalyticsFilters) {
+  static async getBranchAnalytics(filters: any) {
     try {
       const where: any = {};
 
@@ -407,12 +423,7 @@ export class BranchAnalyticsService {
 
   static async getBranchPerformanceComparison(
     branchIds: string[],
-    periodType:
-      | "daily"
-      | "weekly"
-      | "monthly"
-      | "quarterly"
-      | "yearly" = "monthly"
+    periodType: string = "monthly"
   ) {
     try {
       const now = new Date();
@@ -467,14 +478,7 @@ export class BranchAnalyticsService {
     }
   }
 
-  static async getSystemAnalytics(
-    periodType:
-      | "daily"
-      | "weekly"
-      | "monthly"
-      | "quarterly"
-      | "yearly" = "monthly"
-  ) {
+  static async getSystemAnalytics(periodType: string = "monthly") {
     try {
       const now = new Date();
       let periodStart: Date;

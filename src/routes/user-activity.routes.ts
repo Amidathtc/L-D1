@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { UserActivityController } from "../controllers/user-activity.controller";
 import { authenticate } from "../middlewares/auth.middleware";
-import { requireRole } from "../middlewares/role.middleware";
+import {
+  requireAdmin,
+  requireAdminOrManager,
+} from "../middlewares/role.middleware";
 
 const router = Router();
 
@@ -14,28 +17,28 @@ router.post("/update", UserActivityController.updateActivity);
 // Get login history (Admin and Branch Manager)
 router.get(
   "/login-history",
-  requireRole(["ADMIN", "BRANCH_MANAGER"]),
+  requireAdminOrManager,
   UserActivityController.getLoginHistory
 );
 
 // Get user activity summary (Admin and Branch Manager)
 router.get(
   "/user/:userId/summary",
-  requireRole(["ADMIN", "BRANCH_MANAGER"]),
+  requireAdminOrManager,
   UserActivityController.getUserActivitySummary
 );
 
 // Get branch activity summary (Admin and Branch Manager)
 router.get(
   "/branch/:branchId/summary",
-  requireRole(["ADMIN", "BRANCH_MANAGER"]),
+  requireAdminOrManager,
   UserActivityController.getBranchActivitySummary
 );
 
 // Get system activity summary (Admin only)
 router.get(
   "/system/summary",
-  requireRole(["ADMIN"]),
+  requireAdmin,
   UserActivityController.getSystemActivitySummary
 );
 
