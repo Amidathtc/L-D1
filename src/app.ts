@@ -12,9 +12,32 @@ const app: Application = express();
 app.use(helmet());
 
 // CORS
+// app.use(
+//   cors({
+//     origin: config.cors.origin,
+//     credentials: true,
+//   })
+// );
+
 app.use(
   cors({
-    origin: config.cors.origin,
+    origin: (origin, callback) => {
+      const allowedOrigins = config.cors.origin 
+        ? (typeof config.cors.origin === 'string' 
+            ? config.cors.origin.split(',').map(url => url.trim())
+            : config.cors.origin)
+        : ['http://localhost:3000'];
+      
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log('❌ Blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
