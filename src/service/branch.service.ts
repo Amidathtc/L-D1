@@ -21,15 +21,30 @@ export class BranchService {
     if (data.managerId) {
       const manager = await prisma.user.findUnique({
         where: { id: data.managerId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          deletedAt: true,
+          isActive: true,
+        },
       });
 
-      if (!manager || manager.deletedAt) {
-        throw new Error("Manager not found");
+      if (!manager) {
+        throw new Error(`Manager with ID ${data.managerId} not found`);
+      }
+
+      if (manager.deletedAt) {
+        throw new Error("Manager account has been deleted");
+      }
+
+      if (!manager.isActive) {
+        throw new Error("Manager account is inactive");
       }
 
       if (manager.role !== Role.BRANCH_MANAGER && manager.role !== Role.ADMIN) {
         throw new Error(
-          "User must be a Branch Manager or Admin to manage a branch"
+          `User ${manager.email} must be a Branch Manager or Admin to manage a branch. Current role: ${manager.role}`
         );
       }
 
@@ -39,38 +54,54 @@ export class BranchService {
           managerId: data.managerId,
           deletedAt: null,
         },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
       });
 
       if (existingManagement) {
-        throw new Error("Manager is already assigned to another branch");
+        throw new Error(
+          `Manager ${manager.email} is already assigned to branch ${existingManagement.name} (${existingManagement.code})`
+        );
       }
     }
 
-    const branch = await prisma.branch.create({
-      data: {
-        name: data.name,
-        code: code,
-        managerId: data.managerId,
-      },
-      include: {
-        manager: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
+    try {
+      const branch = await prisma.branch.create({
+        data: {
+          name: data.name,
+          code: code,
+          managerId: data.managerId || null, // Explicitly set to null if not provided
+        },
+        include: {
+          manager: {
+            select: {
+              id: true,
+              email: true,
+              role: true,
+            },
+          },
+          _count: {
+            select: {
+              users: true,
+              customers: true,
+              loans: true,
+            },
           },
         },
-        _count: {
-          select: {
-            users: true,
-            customers: true,
-            loans: true,
-          },
-        },
-      },
-    });
+      });
 
-    return branch;
+      return branch;
+    } catch (error: any) {
+      if (error.code === "P2003") {
+        throw new Error(
+          `Foreign key constraint violation: The manager ID ${data.managerId} does not exist or is invalid`
+        );
+      }
+      throw error;
+    }
   }
 
   static async getBranches(page = 1, limit = 20, search?: string) {
@@ -177,17 +208,34 @@ export class BranchService {
       if (data.managerId) {
         const manager = await prisma.user.findUnique({
           where: { id: data.managerId },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            deletedAt: true,
+            isActive: true,
+          },
         });
 
-        if (!manager || manager.deletedAt) {
-          throw new Error("Manager not found");
+        if (!manager) {
+          throw new Error(`Manager with ID ${data.managerId} not found`);
+        }
+
+        if (manager.deletedAt) {
+          throw new Error("Manager account has been deleted");
+        }
+
+        if (!manager.isActive) {
+          throw new Error("Manager account is inactive");
         }
 
         if (
           manager.role !== Role.BRANCH_MANAGER &&
           manager.role !== Role.ADMIN
         ) {
-          throw new Error("User must be a Branch Manager or Admin");
+          throw new Error(
+            `User ${manager.email} must be a Branch Manager or Admin. Current role: ${manager.role}`
+          );
         }
 
         // Check if manager is already managing another branch
@@ -197,40 +245,56 @@ export class BranchService {
             deletedAt: null,
             id: { not: id },
           },
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
         });
 
         if (existingManagement) {
-          throw new Error("Manager is already assigned to another branch");
+          throw new Error(
+            `Manager ${manager.email} is already assigned to branch ${existingManagement.name} (${existingManagement.code})`
+          );
         }
       }
     }
 
-    const updatedBranch = await prisma.branch.update({
-      where: { id },
-      data: {
-        name: data.name,
-        code: data.code,
-        managerId: data.managerId,
-      },
-      include: {
-        manager: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
+    try {
+      const updatedBranch = await prisma.branch.update({
+        where: { id },
+        data: {
+          name: data.name,
+          code: data.code,
+          managerId: data.managerId || null, // Explicitly set to null if not provided
+        },
+        include: {
+          manager: {
+            select: {
+              id: true,
+              email: true,
+              role: true,
+            },
+          },
+          _count: {
+            select: {
+              users: true,
+              customers: true,
+              loans: true,
+            },
           },
         },
-        _count: {
-          select: {
-            users: true,
-            customers: true,
-            loans: true,
-          },
-        },
-      },
-    });
+      });
 
-    return updatedBranch;
+      return updatedBranch;
+    } catch (error: any) {
+      if (error.code === "P2003") {
+        throw new Error(
+          `Foreign key constraint violation: The manager ID ${data.managerId} does not exist or is invalid`
+        );
+      }
+      throw error;
+    }
   }
 
   static async deleteBranch(id: string) {
