@@ -1,4 +1,3 @@
-import { Role } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
 import prisma from "../prismaClient";
@@ -14,6 +13,124 @@ export class DocumentService {
     });
 
     return documentTypes;
+  }
+
+  static async createDocumentType(data: {
+    name: string;
+    code: string;
+    description?: string;
+  }) {
+    // Check if document type with same name or code already exists
+    const existingType = await prisma.documentType.findFirst({
+      where: {
+        OR: [{ name: data.name }, { code: data.code }],
+        deletedAt: null,
+      },
+    });
+
+    if (existingType) {
+      throw new Error("Document type with this name or code already exists");
+    }
+
+    const documentType = await prisma.documentType.create({
+      data: {
+        name: data.name,
+        code: data.code,
+        description: data.description,
+        isActive: true,
+      },
+    });
+
+    return documentType;
+  }
+
+  static async updateDocumentType(
+    id: string,
+    data: {
+      name?: string;
+      code?: string;
+      description?: string;
+      isActive?: boolean;
+    }
+  ) {
+    const existingType = await prisma.documentType.findUnique({
+      where: { id },
+    });
+
+    if (!existingType || existingType.deletedAt) {
+      throw new Error("Document type not found");
+    }
+
+    // Check for conflicts if name or code is being updated
+    if (data.name || data.code) {
+      const conflictType = await prisma.documentType.findFirst({
+        where: {
+          AND: [
+            { id: { not: id } },
+            {
+              OR: [
+                ...(data.name ? [{ name: data.name }] : []),
+                ...(data.code ? [{ code: data.code }] : []),
+              ],
+            },
+          ],
+          deletedAt: null,
+        },
+      });
+
+      if (conflictType) {
+        throw new Error("Document type with this name or code already exists");
+      }
+    }
+
+    const updatedType = await prisma.documentType.update({
+      where: { id },
+      data,
+    });
+
+    return updatedType;
+  }
+
+  static async deleteDocumentType(id: string) {
+    const existingType = await prisma.documentType.findUnique({
+      where: { id },
+    });
+
+    if (!existingType || existingType.deletedAt) {
+      throw new Error("Document type not found");
+    }
+
+    // Check if document type is being used by any documents
+    const customerDocsCount = await prisma.customerDocument.count({
+      where: {
+        documentTypeId: id,
+        deletedAt: null,
+      },
+    });
+
+    const loanDocsCount = await prisma.loanDocument.count({
+      where: {
+        documentTypeId: id,
+        deletedAt: null,
+      },
+    });
+
+    if (customerDocsCount > 0 || loanDocsCount > 0) {
+      throw new Error(
+        "Cannot delete document type that is being used by existing documents"
+      );
+    }
+
+    // Soft delete
+    const deletedType = await prisma.documentType.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        isActive: false,
+      },
+    });
+
+    return deletedType;
   }
 
   static async uploadCustomerDocument(

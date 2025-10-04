@@ -59,6 +59,88 @@ export class DocumentController {
     }
   }
 
+  static async createDocumentType(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { name, code, description } = req.body;
+
+      if (!name || !code) {
+        return ApiResponseUtil.error(res, "Name and code are required", 400);
+      }
+
+      const documentType = await DocumentService.createDocumentType({
+        name,
+        code,
+        description,
+      });
+
+      return ApiResponseUtil.success(
+        res,
+        documentType,
+        "Document type created successfully"
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async updateDocumentType(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { id } = req.params;
+      const { name, code, description, isActive } = req.body;
+
+      if (!id) {
+        return ApiResponseUtil.error(res, "Document type ID is required", 400);
+      }
+
+      const documentType = await DocumentService.updateDocumentType(id, {
+        name,
+        code,
+        description,
+        isActive,
+      });
+
+      return ApiResponseUtil.success(
+        res,
+        documentType,
+        "Document type updated successfully"
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async deleteDocumentType(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return ApiResponseUtil.error(res, "Document type ID is required", 400);
+      }
+
+      await DocumentService.deleteDocumentType(id);
+
+      return ApiResponseUtil.success(
+        res,
+        null,
+        "Document type deleted successfully"
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
   static async uploadCustomerDocument(
     req: Request,
     res: Response,

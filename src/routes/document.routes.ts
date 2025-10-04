@@ -1,14 +1,34 @@
 import { Router } from "express";
 import { DocumentController, upload } from "../controllers/document.controller";
 import { authenticate } from "../middlewares/auth.middleware";
-import { requireBranchManager } from "../middlewares/role.middleware";
+import {
+  requireBranchManager,
+  requireRole,
+} from "../middlewares/role.middleware";
 import { auditLog } from "../middlewares/audit.middleware";
+import { Role } from "@prisma/client";
 
 const router = Router();
 
 router.use(authenticate);
 
+// Document types routes
 router.get("/types", DocumentController.getDocumentTypes);
+router.post(
+  "/types",
+  requireRole(Role.ADMIN),
+  DocumentController.createDocumentType
+);
+router.put(
+  "/types/:id",
+  requireRole(Role.ADMIN),
+  DocumentController.updateDocumentType
+);
+router.delete(
+  "/types/:id",
+  requireRole(Role.ADMIN),
+  DocumentController.deleteDocumentType
+);
 
 router.post(
   "/customer/:customerId",
