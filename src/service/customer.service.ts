@@ -59,8 +59,8 @@ export class CustomerService {
       }
     }
 
-    // Check if email exists
-    if (data.email) {
+    // Check if email exists (only if email is provided)
+    if (data.email && data.email.trim()) {
       const existingCustomer = await prisma.customer.findFirst({
         where: {
           email: data.email,
@@ -307,8 +307,8 @@ export class CustomerService {
       }
     }
 
-    // Check email uniqueness if changing
-    if (data.email && data.email !== customer.email) {
+    // Check email uniqueness if changing (only if email is provided)
+    if (data.email && data.email.trim() && data.email !== customer.email) {
       const existingCustomer = await prisma.customer.findFirst({
         where: {
           email: data.email,
