@@ -26,7 +26,7 @@ export const getUsersSchema = z.object({
   query: z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
-    role: z.nativeEnum(Role).optional(),
+    role: z.string().optional(), // Changed from z.nativeEnum(Role) to z.string()
     branchId: z.string().optional(),
     isActive: z.string().optional(),
     search: z.string().optional(),
