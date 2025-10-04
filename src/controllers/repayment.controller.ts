@@ -139,4 +139,97 @@ export class RepaymentController {
       next(error);
     }
   }
+
+  static async getRepaymentSchedules(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const filters = {
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
+        loanId: req.query.loanId as string,
+        status: req.query.status as string,
+        dateFrom: req.query.dateFrom as string,
+        dateTo: req.query.dateTo as string,
+      };
+
+      const result = await RepaymentService.getRepaymentSchedules(
+        filters,
+        req.user!.role,
+        req.user!.branchId || undefined,
+        req.user!.id
+      );
+
+      return ApiResponseUtil.paginated(
+        res,
+        result.schedules,
+        result.page,
+        result.limit,
+        result.total,
+        "Repayment schedules retrieved successfully"
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async getRepaymentScheduleByLoan(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { loanId } = req.params;
+
+      if (!loanId) {
+        return ApiResponseUtil.error(res, "Loan ID is required", 400);
+      }
+
+      const schedule = await RepaymentService.getRepaymentScheduleByLoan(
+        loanId,
+        req.user!.role,
+        req.user!.branchId || undefined,
+        req.user!.id
+      );
+
+      return ApiResponseUtil.success(
+        res,
+        schedule,
+        "Repayment schedule retrieved successfully"
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async getRepaymentSummary(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const filters = {
+        loanId: req.query.loanId as string,
+        dateFrom: req.query.dateFrom as string,
+        dateTo: req.query.dateTo as string,
+      };
+
+      const summary = await RepaymentService.getRepaymentSummary(
+        filters,
+        req.user!.role,
+        req.user!.branchId || undefined,
+        req.user!.id
+      );
+
+      return ApiResponseUtil.success(
+        res,
+        summary,
+        "Repayment summary retrieved successfully"
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
 }

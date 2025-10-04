@@ -1,11 +1,39 @@
-import {
-  RepaymentMethod,
-  ScheduleStatus,
-  Role,
-  LoanStatus,
-} from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import prisma from "../prismaClient";
+
+// Define enums locally since Prisma client seems to have issues
+enum RepaymentMethod {
+  CASH = "CASH",
+  TRANSFER = "TRANSFER",
+  POS = "POS",
+  MOBILE = "MOBILE",
+  USSD = "USSD",
+  OTHER = "OTHER",
+}
+
+enum ScheduleStatus {
+  PENDING = "PENDING",
+  PARTIAL = "PARTIAL",
+  PAID = "PAID",
+  OVERDUE = "OVERDUE",
+}
+
+enum Role {
+  ADMIN = "ADMIN",
+  BRANCH_MANAGER = "BRANCH_MANAGER",
+  CREDIT_OFFICER = "CREDIT_OFFICER",
+}
+
+enum LoanStatus {
+  DRAFT = "DRAFT",
+  PENDING_APPROVAL = "PENDING_APPROVAL",
+  APPROVED = "APPROVED",
+  ACTIVE = "ACTIVE",
+  COMPLETED = "COMPLETED",
+  DEFAULTED = "DEFAULTED",
+  WRITTEN_OFF = "WRITTEN_OFF",
+  CANCELED = "CANCELED",
+}
 
 interface CreateRepaymentData {
   loanId: string;
@@ -483,5 +511,263 @@ export class RepaymentService {
         },
       });
     }
+  }
+
+  static async getRepaymentSchedules(
+    filters: {
+      page: number;
+      limit: number;
+      loanId?: string;
+      status?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    },
+    userRole: Role,
+    userBranchId?: string,
+    userId?: string
+  ) {
+    const skip = (filters.page - 1) * filters.limit;
+
+    const where: any = {
+      deletedAt: null,
+    };
+
+    // Apply filters
+    if (filters.loanId) {
+      where.loanId = filters.loanId;
+    }
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.dueDate = {};
+      if (filters.dateFrom) {
+        where.dueDate.gte = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        where.dueDate.lte = new Date(filters.dateTo);
+      }
+    }
+
+    // Apply role-based filtering
+    if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      where.loan = {
+        branchId: userBranchId,
+      };
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      where.loan = {
+        assignedOfficerId: userId,
+      };
+    }
+
+    const [schedules, total] = await Promise.all([
+      prisma.repaymentScheduleItem.findMany({
+        where,
+        include: {
+          loan: {
+            include: {
+              customer: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                },
+              },
+              branch: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              assignedOfficer: {
+                select: {
+                  id: true,
+                  email: true,
+                },
+              },
+            },
+          },
+          allocations: {
+            include: {
+              repayment: {
+                select: {
+                  id: true,
+                  amount: true,
+                  method: true,
+                  paidAt: true,
+                },
+              },
+            },
+          },
+        },
+        skip,
+        take: filters.limit,
+        orderBy: { dueDate: "asc" },
+      }),
+      prisma.repaymentScheduleItem.count({ where }),
+    ]);
+
+    return {
+      schedules,
+      total,
+      page: filters.page,
+      limit: filters.limit,
+    };
+  }
+
+  static async getRepaymentScheduleByLoan(
+    loanId: string,
+    userRole: Role,
+    userBranchId?: string,
+    userId?: string
+  ) {
+    // Verify loan access
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: {
+        customer: true,
+        branch: true,
+        assignedOfficer: true,
+      },
+    });
+
+    if (!loan || loan.deletedAt) {
+      throw new Error("Loan not found");
+    }
+
+    // Check permissions
+    if (
+      userRole === Role.BRANCH_MANAGER &&
+      userBranchId &&
+      loan.branchId !== userBranchId
+    ) {
+      throw new Error(
+        "You do not have permission to view this loan's schedule"
+      );
+    }
+
+    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
+      throw new Error(
+        "You do not have permission to view this loan's schedule"
+      );
+    }
+
+    const schedule = await prisma.repaymentScheduleItem.findMany({
+      where: {
+        loanId,
+        deletedAt: null,
+      },
+      include: {
+        allocations: {
+          include: {
+            repayment: {
+              select: {
+                id: true,
+                amount: true,
+                method: true,
+                paidAt: true,
+                reference: true,
+                notes: true,
+                receivedBy: {
+                  select: {
+                    id: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { sequence: "asc" },
+    });
+
+    return {
+      loan,
+      schedule,
+    };
+  }
+
+  static async getRepaymentSummary(
+    filters: {
+      loanId?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    },
+    userRole: Role,
+    userBranchId?: string,
+    userId?: string
+  ) {
+    const where: any = {
+      deletedAt: null,
+    };
+
+    // Apply filters
+    if (filters.loanId) {
+      where.loanId = filters.loanId;
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.paidAt = {};
+      if (filters.dateFrom) {
+        where.paidAt.gte = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        where.paidAt.lte = new Date(filters.dateTo);
+      }
+    }
+
+    // Apply role-based filtering
+    if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      where.loan = {
+        branchId: userBranchId,
+      };
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      where.loan = {
+        assignedOfficerId: userId,
+      };
+    }
+
+    const [totalRepayments, totalAmount, methodBreakdown, recentRepayments] =
+      await Promise.all([
+        prisma.repayment.count({ where }),
+        prisma.repayment.aggregate({
+          where,
+          _sum: { amount: true },
+        }),
+        prisma.repayment.groupBy({
+          by: ["method"],
+          where,
+          _sum: { amount: true },
+          _count: true,
+        }),
+        prisma.repayment.findMany({
+          where,
+          include: {
+            loan: {
+              include: {
+                customer: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { paidAt: "desc" },
+          take: 5,
+        }),
+      ]);
+
+    return {
+      totalRepayments,
+      totalAmount: totalAmount._sum.amount || 0,
+      methodBreakdown,
+      recentRepayments,
+    };
   }
 }

@@ -11,17 +11,17 @@ enum Role {
 
 export class AuthService {
   static async register(email: string, password: string) {
-    // Check if any admin already exists
-    const existingAdmin = await prisma.user.findFirst({
+    // Check if maximum admin limit (6) has been reached
+    const adminCount = await prisma.user.count({
       where: {
         role: Role.ADMIN,
         deletedAt: null,
       },
     });
 
-    if (existingAdmin) {
+    if (adminCount >= 6) {
       throw new Error(
-        "Admin registration is not allowed. An admin already exists."
+        "Admin registration is not allowed. Maximum of 6 admins already exist."
       );
     }
 

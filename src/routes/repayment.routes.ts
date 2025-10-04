@@ -38,4 +38,12 @@ router.delete(
   RepaymentController.deleteRepayment
 );
 
+// Repayment schedule routes
+router.get("/schedules", RepaymentController.getRepaymentSchedules);
+router.get(
+  "/schedules/:loanId",
+  RepaymentController.getRepaymentScheduleByLoan
+);
+router.get("/summary", RepaymentController.getRepaymentSummary);
+
 export default router;
