@@ -128,7 +128,11 @@ export class UserService {
     return user;
   }
 
-  static async getUsers(filters: GetUsersFilters) {
+  static async getUsers(
+    filters: GetUsersFilters,
+    userRole: Role,
+    userBranchId?: string
+  ) {
     const page = filters.page || 1;
     const limit = filters.limit || 20;
     const skip = (page - 1) * limit;
@@ -136,6 +140,16 @@ export class UserService {
     const where: any = {
       deletedAt: null,
     };
+
+    // Branch managers can only see users from their branch
+    if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      where.branchId = userBranchId;
+    }
+    // Credit officers can only see users from their branch
+    else if (userRole === Role.CREDIT_OFFICER && userBranchId) {
+      where.branchId = userBranchId;
+    }
+    // Admins can see all users
 
     if (filters.role) {
       where.role = filters.role;
@@ -150,10 +164,11 @@ export class UserService {
     }
 
     if (filters.search) {
-      where.email = {
-        contains: filters.search,
-        mode: "insensitive",
-      };
+      where.OR = [
+        { email: { contains: filters.search, mode: "insensitive" } },
+        { firstName: { contains: filters.search, mode: "insensitive" } },
+        { lastName: { contains: filters.search, mode: "insensitive" } },
+      ];
     }
 
     const [users, total] = await Promise.all([
@@ -185,7 +200,7 @@ export class UserService {
     return { users, total, page, limit };
   }
 
-  static async getUserById(id: string) {
+  static async getUserById(id: string, userRole: Role, userBranchId?: string) {
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
@@ -224,6 +239,20 @@ export class UserService {
     if (!user || user.deletedAt) {
       throw new Error("User not found");
     }
+
+    // Role-based access restrictions
+    if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // Branch managers can only see users from their branch
+      if (user.branchId !== userBranchId) {
+        throw new Error("You can only view users from your own branch");
+      }
+    } else if (userRole === Role.CREDIT_OFFICER && userBranchId) {
+      // Credit officers can only see users from their branch
+      if (user.branchId !== userBranchId) {
+        throw new Error("You can only view users from your own branch");
+      }
+    }
+    // Admins can see any user
 
     return user;
   }
@@ -293,9 +322,15 @@ export class UserService {
     return updatedUser;
   }
 
-  static async deleteUser(id: string, deleterId: string) {
+  static async deleteUser(
+    id: string,
+    deleterId: string,
+    deleterRole: Role,
+    deleterBranchId?: string
+  ) {
     const user = await prisma.user.findUnique({
       where: { id },
+      include: { branch: true },
     });
 
     if (!user || user.deletedAt) {
@@ -306,6 +341,25 @@ export class UserService {
     if (id === deleterId) {
       throw new Error("You cannot delete your own account");
     }
+
+    // Role-based deletion restrictions
+    if (deleterRole === Role.CREDIT_OFFICER) {
+      throw new Error("Credit officers cannot delete users");
+    }
+
+    if (deleterRole === Role.BRANCH_MANAGER) {
+      // Branch managers can only delete users from their branch
+      if (user.branchId !== deleterBranchId) {
+        throw new Error("You can only delete users from your own branch");
+      }
+      // Branch managers cannot delete other admins
+      if (user.role === Role.ADMIN) {
+        throw new Error("Branch managers cannot delete admin users");
+      }
+    }
+
+    // Admins can delete anyone (including other admins)
+    // No additional restrictions for admins
 
     // Soft delete
     await prisma.user.update({

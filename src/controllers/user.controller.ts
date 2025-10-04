@@ -15,7 +15,22 @@ export class UserController {
 
   static async getUsers(req: Request, res: Response, next: NextFunction) {
     try {
-      const users = await UserService.getUsers(req.query);
+      const filters = {
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
+        role: req.query.role as any,
+        branchId: req.query.branchId as string,
+        isActive: req.query.isActive
+          ? req.query.isActive === "true"
+          : undefined,
+        search: req.query.search as string,
+      };
+
+      const users = await UserService.getUsers(
+        filters,
+        req.user!.role,
+        req.user!.branchId || undefined
+      );
 
       return ApiResponseUtil.success(
         res,
@@ -29,7 +44,11 @@ export class UserController {
 
   static async getUserById(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await UserService.getUserById(req.params.id!);
+      const user = await UserService.getUserById(
+        req.params.id!,
+        req.user!.role,
+        req.user!.branchId || undefined
+      );
 
       return ApiResponseUtil.success(res, user, "User retrieved successfully");
     } catch (error: any) {
@@ -53,7 +72,12 @@ export class UserController {
 
   static async deleteUser(req: Request, res: Response, next: NextFunction) {
     try {
-      await UserService.deleteUser(req.params.id!, req.user!.id);
+      await UserService.deleteUser(
+        req.params.id!,
+        req.user!.id,
+        req.user!.role,
+        req.user!.branchId || undefined
+      );
 
       return ApiResponseUtil.success(res, null, "User deleted successfully");
     } catch (error: any) {
