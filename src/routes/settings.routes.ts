@@ -2,6 +2,7 @@ import { Router } from "express";
 import { SettingsController } from "../controllers/settings.controller";
 import { authenticate } from "../middlewares/auth.middleware";
 import { requireRole } from "../middlewares/role.middleware";
+import { Role } from "@prisma/client";
 
 const router = Router();
 
@@ -11,41 +12,41 @@ router.use(authenticate);
 // Company Settings - Admin only
 router.get(
   "/company",
-  requireRole(["ADMIN"]),
+  requireRole(Role.ADMIN),
   SettingsController.getCompanySettings
 );
 router.put(
   "/company",
-  requireRole(["ADMIN"]),
+  requireRole(Role.ADMIN),
   SettingsController.updateCompanySettings
 );
 
 // Email Settings - Admin only
 router.get(
   "/email",
-  requireRole(["ADMIN"]),
+  requireRole(Role.ADMIN),
   SettingsController.getEmailSettings
 );
 router.put(
   "/email",
-  requireRole(["ADMIN"]),
+  requireRole(Role.ADMIN),
   SettingsController.updateEmailSettings
 );
 router.post(
   "/email/test",
-  requireRole(["ADMIN"]),
+  requireRole(Role.ADMIN),
   SettingsController.testEmailSettings
 );
 
 // General Settings - Admin only
 router.get(
   "/general",
-  requireRole(["ADMIN"]),
+  requireRole(Role.ADMIN),
   SettingsController.getGeneralSettings
 );
 router.put(
   "/general",
-  requireRole(["ADMIN"]),
+  requireRole(Role.ADMIN),
   SettingsController.updateGeneralSettings
 );
 
@@ -55,12 +56,12 @@ router.put("/password", SettingsController.changePassword);
 // System Settings - Admin only
 router.get(
   "/system",
-  requireRole(["ADMIN"]),
+  requireRole(Role.ADMIN),
   SettingsController.getSystemSettings
 );
 router.put(
   "/system",
-  requireRole(["ADMIN"]),
+  requireRole(Role.ADMIN),
   SettingsController.updateSystemSettings
 );
 

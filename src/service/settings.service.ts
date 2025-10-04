@@ -164,7 +164,7 @@ export class SettingsService {
     // Verify current password
     const isCurrentPasswordValid = await bcrypt.compare(
       currentPassword,
-      user.password
+      user.passwordHash
     );
     if (!isCurrentPasswordValid) {
       throw new Error("Current password is incorrect");
@@ -181,7 +181,7 @@ export class SettingsService {
     // Update password
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedNewPassword },
+      data: { passwordHash: hashedNewPassword },
     });
   }
 
