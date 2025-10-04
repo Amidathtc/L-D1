@@ -39,7 +39,7 @@ export class RepaymentController {
 
       const result = await RepaymentService.getRepayments(
         filters,
-        req.user!.role,
+        req.user!.role as any,
         req.user!.branchId || undefined,
         req.user!.id
       );
@@ -71,7 +71,7 @@ export class RepaymentController {
 
       const repayment = await RepaymentService.getRepaymentById(
         id,
-        req.user!.role,
+        req.user!.role as any,
         req.user!.branchId || undefined,
         req.user!.id
       );
@@ -97,7 +97,7 @@ export class RepaymentController {
       const repayment = await RepaymentService.updateRepayment(
         id,
         req.body,
-        req.user!.role,
+        req.user!.role as any,
         req.user!.branchId || undefined,
         req.user!.id
       );
@@ -126,7 +126,7 @@ export class RepaymentController {
 
       await RepaymentService.deleteRepayment(
         id,
-        req.user!.role,
+        req.user!.role as any,
         req.user!.branchId || undefined
       );
 
@@ -157,7 +157,7 @@ export class RepaymentController {
 
       const result = await RepaymentService.getRepaymentSchedules(
         filters,
-        req.user!.role,
+        req.user!.role as any,
         req.user!.branchId || undefined,
         req.user!.id
       );
@@ -189,7 +189,7 @@ export class RepaymentController {
 
       const schedule = await RepaymentService.getRepaymentScheduleByLoan(
         loanId,
-        req.user!.role,
+        req.user!.role as any,
         req.user!.branchId || undefined,
         req.user!.id
       );
@@ -218,7 +218,7 @@ export class RepaymentController {
 
       const summary = await RepaymentService.getRepaymentSummary(
         filters,
-        req.user!.role,
+        req.user!.role as any,
         req.user!.branchId || undefined,
         req.user!.id
       );
