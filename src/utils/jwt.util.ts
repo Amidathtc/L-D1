@@ -16,16 +16,40 @@ export class JwtUtil {
     jwtId: string;
   } {
     const jwtId = this.generateJwtId();
-    const token = jwt.sign({ ...payload, jwtId }, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
-    } as jwt.SignOptions);
-    return { token, jwtId };
+
+    // Ensure we have valid JWT configuration
+    const secret = config.jwt.secret || "fallback-secret-key";
+    const expiresIn = "7d"; // Use a hardcoded valid value
+
+    console.log("JWT Config:", {
+      secret: secret ? "***" : "MISSING",
+      expiresIn: expiresIn,
+      refreshSecret: config.jwt.refreshSecret ? "***" : "MISSING",
+    });
+
+    try {
+      const token = jwt.sign({ ...payload, jwtId }, secret, {
+        expiresIn: expiresIn,
+      });
+      return { token, jwtId };
+    } catch (error) {
+      console.error("JWT Generation Error:", error);
+      throw new Error("Failed to generate access token");
+    }
   }
 
   static generateRefreshToken(payload: Omit<JwtPayload, "jwtId">): string {
-    return jwt.sign(payload, config.jwt.refreshSecret, {
-      expiresIn: config.jwt.refreshExpiresIn,
-    } as jwt.SignOptions);
+    const refreshSecret = config.jwt.refreshSecret || "fallback-refresh-secret";
+    const expiresIn = "30d"; // Use a hardcoded valid value
+
+    try {
+      return jwt.sign(payload, refreshSecret, {
+        expiresIn: expiresIn,
+      });
+    } catch (error) {
+      console.error("Refresh Token Generation Error:", error);
+      throw new Error("Failed to generate refresh token");
+    }
   }
 
   static verifyAccessToken(token: string): JwtPayload {

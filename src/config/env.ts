@@ -15,6 +15,15 @@ if (!process.env.JWT_REFRESH_SECRET) {
   throw new Error("JWT_REFRESH_SECRET environment variable is required");
 }
 
+// Debug environment variables
+console.log("Environment Variables:", {
+  NODE_ENV: process.env.NODE_ENV,
+  JWT_SECRET: process.env.JWT_SECRET ? "***" : "MISSING",
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? "***" : "MISSING",
+  JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN,
+});
+
 export const config = {
   env: process.env.NODE_ENV || "development",
   port: parseInt(process.env.PORT || "5000", 10),
@@ -26,7 +35,11 @@ export const config = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: process.env.CORS_ORIGIN || [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://app.millenniumpotters.com.ng",
+    ],
   },
   upload: {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE || "5242880", 10),
