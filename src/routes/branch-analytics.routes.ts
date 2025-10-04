@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { BranchAnalyticsController } from "../controllers/branch-analytics.controller";
 import { authenticate } from "../middlewares/auth.middleware";
-import { requireRole } from "../middlewares/role.middleware";
+import {
+  requireAdminOrManager,
+  requireAdmin,
+} from "../middlewares/role.middleware";
 
 const router = Router();
 
@@ -11,28 +14,28 @@ router.use(authenticate);
 // Generate branch analytics (Admin and Branch Manager)
 router.post(
   "/branch/:branchId/generate",
-  requireRole(["ADMIN", "BRANCH_MANAGER"]),
+  requireAdminOrManager,
   BranchAnalyticsController.generateAnalytics
 );
 
 // Get branch analytics (Admin and Branch Manager)
 router.get(
   "/branch",
-  requireRole(["ADMIN", "BRANCH_MANAGER"]),
+  requireAdminOrManager,
   BranchAnalyticsController.getAnalytics
 );
 
 // Get branch performance comparison (Admin only)
 router.post(
   "/comparison",
-  requireRole(["ADMIN"]),
+  requireAdmin,
   BranchAnalyticsController.getPerformanceComparison
 );
 
 // Get system analytics (Admin only)
 router.get(
   "/system",
-  requireRole(["ADMIN"]),
+  requireAdmin,
   BranchAnalyticsController.getSystemAnalytics
 );
 

@@ -25,6 +25,10 @@ export const requireBranchManager = requireRole(
   Role.ADMIN,
   Role.BRANCH_MANAGER
 );
+export const requireAdminOrManager = requireRole(
+  Role.ADMIN,
+  Role.BRANCH_MANAGER
+);
 export const requireStaff = requireRole(
   Role.ADMIN,
   Role.BRANCH_MANAGER,
