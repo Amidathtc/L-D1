@@ -28,13 +28,19 @@ app.use(
           : config.cors.origin
         : ["http://localhost:3000"];
 
-      // In production, be more strict about origins
+      // In production, be more strict about origins but allow requests without origin
       if (config.env === "production") {
+        // Allow requests without origin (server-to-server, health checks, etc.)
         if (!origin) {
-          return callback(new Error("Origin required in production"), false);
+          console.log("✅ Allowing request without origin in production");
+          return callback(null, true);
         }
 
+        console.log("🔍 Checking origin in production:", origin);
+        console.log("📋 Allowed origins:", allowedOrigins);
+
         if (allowedOrigins.includes(origin)) {
+          console.log("✅ Origin allowed:", origin);
           callback(null, true);
         } else {
           console.log("❌ Blocked origin in production:", origin);

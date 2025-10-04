@@ -22,6 +22,7 @@ console.log("Environment Variables:", {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? "SET" : "MISSING",
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN,
+  CORS_ORIGIN: process.env.CORS_ORIGIN || "NOT_SET",
 });
 
 export const config = {
