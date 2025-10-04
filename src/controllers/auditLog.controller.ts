@@ -12,6 +12,7 @@ export class AuditLogController {
         entityId: req.query.entityId as string,
         actorUserId: req.query.actorUserId as string,
         action: req.query.action as string,
+        search: req.query.search as string,
         dateFrom: req.query.dateFrom as string,
         dateTo: req.query.dateTo as string,
       };

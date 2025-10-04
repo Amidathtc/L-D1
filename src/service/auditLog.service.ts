@@ -8,6 +8,7 @@ interface GetAuditLogsFilters {
   entityId?: string;
   actorUserId?: string;
   action?: string;
+  search?: string;
   dateFrom?: string;
   dateTo?: string;
 }
@@ -34,6 +35,14 @@ export class AuditLogService {
 
     if (filters.action) {
       where.action = { contains: filters.action, mode: "insensitive" };
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { action: { contains: filters.search, mode: "insensitive" } },
+        { entityName: { contains: filters.search, mode: "insensitive" } },
+        { entityId: { contains: filters.search, mode: "insensitive" } },
+      ];
     }
 
     if (filters.dateFrom || filters.dateTo) {
