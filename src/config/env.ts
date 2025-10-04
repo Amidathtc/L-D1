@@ -15,12 +15,12 @@ if (!process.env.JWT_REFRESH_SECRET) {
   throw new Error("JWT_REFRESH_SECRET environment variable is required");
 }
 
-// Debug environment variables
+// Debug environment variables (SECURITY: Never log sensitive data)
 console.log("Environment Variables:", {
   NODE_ENV: process.env.NODE_ENV,
-  JWT_SECRET: process.env.JWT_SECRET ? "***" : "MISSING",
+  JWT_SECRET: process.env.JWT_SECRET ? "SET" : "MISSING",
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
-  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? "***" : "MISSING",
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? "SET" : "MISSING",
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN,
 });
 

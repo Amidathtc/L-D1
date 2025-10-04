@@ -75,6 +75,30 @@ export class BranchController {
     }
   }
 
+  static async toggleBranchStatus(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return ApiResponseUtil.error(res, "Branch ID is required", 400);
+      }
+
+      const branch = await BranchService.toggleBranchStatus(id);
+
+      return ApiResponseUtil.success(
+        res,
+        branch,
+        `Branch ${branch.isActive ? "enabled" : "disabled"} successfully`
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
   static async deleteBranch(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;

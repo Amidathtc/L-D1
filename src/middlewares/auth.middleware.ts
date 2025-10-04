@@ -43,11 +43,26 @@ export const authenticate = async (
         branchId: true,
         isActive: true,
         deletedAt: true,
+        branch: {
+          select: {
+            id: true,
+            isActive: true,
+          },
+        },
       },
     });
 
     if (!user || !user.isActive || user.deletedAt) {
       return ApiResponseUtil.error(res, "User account is inactive", 401);
+    }
+
+    // Check if user's branch is active (for non-admin users)
+    if (user.branchId && user.branch && !user.branch.isActive) {
+      return ApiResponseUtil.error(
+        res,
+        "Branch is inactive. Please contact administrator.",
+        401
+      );
     }
 
     req.user = {

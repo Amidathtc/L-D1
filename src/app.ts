@@ -1,7 +1,7 @@
 import express, { type Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
-// import rateLimit from "express-rate-limit";
+import rateLimit from "express-rate-limit";
 import { config } from "./config/env";
 import routes from "./routes/index";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
@@ -22,34 +22,50 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowedOrigins = config.cors.origin 
-        ? (typeof config.cors.origin === 'string' 
-            ? config.cors.origin.split(',').map(url => url.trim())
-            : config.cors.origin)
-        : ['http://localhost:3000'];
-      
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
+      const allowedOrigins = config.cors.origin
+        ? typeof config.cors.origin === "string"
+          ? config.cors.origin.split(",").map((url) => url.trim())
+          : config.cors.origin
+        : ["http://localhost:3000"];
+
+      // In production, be more strict about origins
+      if (config.env === "production") {
+        if (!origin) {
+          return callback(new Error("Origin required in production"), false);
+        }
+
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          console.log("❌ Blocked origin in production:", origin);
+          callback(new Error("Not allowed by CORS"), false);
+        }
       } else {
-        console.log('❌ Blocked origin:', origin);
-        callback(new Error('Not allowed by CORS'));
+        // In development, be more permissive
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          console.log("❌ Blocked origin:", origin);
+          callback(new Error("Not allowed by CORS"), false);
+        }
       }
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
 // Rate limiting
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 100, // Limit each IP to 100 requests per windowMs
-//   message: "Too many requests from this IP, please try again later.",
-// });
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-// app.use("/api/", limiter);
+app.use("/api/", limiter);
 
 // Body parser
 app.use(express.json({ limit: "10mb" }));

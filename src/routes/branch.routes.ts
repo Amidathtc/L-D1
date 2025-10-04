@@ -39,6 +39,13 @@ router.put(
   BranchController.updateBranch
 );
 
+router.patch(
+  "/:id/toggle-status",
+  requireAdmin,
+  auditLog("BRANCH_STATUS_TOGGLED", "Branch"),
+  BranchController.toggleBranchStatus
+);
+
 router.delete(
   "/:id",
   requireAdmin,

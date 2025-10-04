@@ -87,6 +87,11 @@ export class AuthService {
       throw new Error("Account is inactive");
     }
 
+    // Check if user's branch is active (for non-admin users)
+    if (user.branchId && user.branch && !user.branch.isActive) {
+      throw new Error("Branch is inactive. Please contact administrator.");
+    }
+
     const isPasswordValid = await PasswordUtil.compare(
       password,
       user.passwordHash

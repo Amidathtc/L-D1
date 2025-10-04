@@ -59,6 +59,7 @@ model Branch {
   name        String
   code        String  @unique
   managerId   String? @unique
+  isActive    Boolean @default(true)
   manager     User?   @relation("BranchManager", fields: [managerId], references: [id])
 
   users       User[]  @relation("UserBranch")
@@ -76,6 +77,10 @@ model Branch {
   deletedAt   DateTime?
 
   @@index([name])
+  @@index([code])
+  @@index([managerId])
+  @@index([isActive])
+  @@index([deletedAt])
 }
 
 model User {
@@ -111,6 +116,12 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   deletedAt     DateTime?
+
+  @@index([email])
+  @@index([role])
+  @@index([branchId])
+  @@index([isActive])
+  @@index([deletedAt])
 }
 
 model Customer {
@@ -138,6 +149,10 @@ model Customer {
 
   @@index([branchId])
   @@index([currentOfficerId])
+  @@index([firstName, lastName])
+  @@index([email])
+  @@index([phone])
+  @@index([deletedAt])
 }
 
 model LoanType {
@@ -160,6 +175,10 @@ model LoanType {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
+
+  @@index([name])
+  @@index([isActive])
+  @@index([deletedAt])
 }
 
 model Loan {
@@ -214,6 +233,11 @@ model Loan {
   @@index([branchId])
   @@index([assignedOfficerId])
   @@index([status])
+  @@index([loanNumber])
+  @@index([loanTypeId])
+  @@index([createdByUserId])
+  @@index([endDate])
+  @@index([deletedAt])
 }
 
 model RepaymentScheduleItem {

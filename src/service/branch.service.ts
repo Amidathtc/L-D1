@@ -10,6 +10,7 @@ interface UpdateBranchData {
   name?: string;
   code?: string;
   managerId?: string | null;
+  isActive?: boolean;
 }
 
 export class BranchService {
@@ -295,6 +296,69 @@ export class BranchService {
       }
       throw error;
     }
+  }
+
+  static async toggleBranchStatus(id: string) {
+    const branch = await prisma.branch.findUnique({
+      where: { id },
+      include: {
+        users: {
+          where: { deletedAt: null },
+          select: { id: true, email: true, isActive: true },
+        },
+        _count: {
+          select: {
+            users: true,
+            customers: true,
+            loans: true,
+          },
+        },
+      },
+    });
+
+    if (!branch || branch.deletedAt) {
+      throw new Error("Branch not found");
+    }
+
+    const newStatus = !branch.isActive;
+
+    // If disabling branch, also disable all users in that branch
+    if (!newStatus && branch.users.length > 0) {
+      await prisma.user.updateMany({
+        where: {
+          branchId: id,
+          deletedAt: null,
+        },
+        data: {
+          isActive: false,
+        },
+      });
+    }
+
+    const updatedBranch = await prisma.branch.update({
+      where: { id },
+      data: {
+        isActive: newStatus,
+      },
+      include: {
+        manager: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+          },
+        },
+        _count: {
+          select: {
+            users: true,
+            customers: true,
+            loans: true,
+          },
+        },
+      },
+    });
+
+    return updatedBranch;
   }
 
   static async deleteBranch(id: string) {
