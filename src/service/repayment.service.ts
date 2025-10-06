@@ -562,7 +562,9 @@ export class RepaymentService {
     }
 
     // Apply role-based filtering
-    if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+    if (userRole === Role.ADMIN) {
+      // ADMIN can see all schedules - no additional filtering
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
       where.loan = {
         branchId: userBranchId,
       };
