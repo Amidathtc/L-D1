@@ -1,6 +1,36 @@
-import { LoanStatus, TermUnit, ScheduleStatus, Role } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import prisma from "../prismaClient";
+
+// Local enum definitions
+enum Role {
+  ADMIN = "ADMIN",
+  BRANCH_MANAGER = "BRANCH_MANAGER",
+  CREDIT_OFFICER = "CREDIT_OFFICER",
+}
+
+enum LoanStatus {
+  DRAFT = "DRAFT",
+  PENDING_APPROVAL = "PENDING_APPROVAL",
+  APPROVED = "APPROVED",
+  ACTIVE = "ACTIVE",
+  COMPLETED = "COMPLETED",
+  DEFAULTED = "DEFAULTED",
+  WRITTEN_OFF = "WRITTEN_OFF",
+  CANCELED = "CANCELED",
+}
+
+enum TermUnit {
+  DAY = "DAY",
+  WEEK = "WEEK",
+  MONTH = "MONTH",
+}
+
+enum ScheduleStatus {
+  PENDING = "PENDING",
+  PARTIAL = "PARTIAL",
+  PAID = "PAID",
+  OVERDUE = "OVERDUE",
+}
 
 interface CreateLoanData {
   customerId: string;
@@ -97,7 +127,7 @@ export class LoanService {
     );
 
     // Determine initial loan status based on user role
-    let initialStatus = LoanStatus.DRAFT;
+    let initialStatus: LoanStatus = LoanStatus.DRAFT;
     if (userRole === Role.ADMIN) {
       initialStatus = LoanStatus.APPROVED;
     } else if (
