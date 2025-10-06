@@ -1,36 +1,19 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import prisma from "../prismaClient";
 
-// Local enum definitions
-enum Role {
-  ADMIN = "ADMIN",
-  BRANCH_MANAGER = "BRANCH_MANAGER",
-  CREDIT_OFFICER = "CREDIT_OFFICER",
-}
-
-enum LoanStatus {
-  DRAFT = "DRAFT",
-  PENDING_APPROVAL = "PENDING_APPROVAL",
-  APPROVED = "APPROVED",
-  ACTIVE = "ACTIVE",
-  COMPLETED = "COMPLETED",
-  DEFAULTED = "DEFAULTED",
-  WRITTEN_OFF = "WRITTEN_OFF",
-  CANCELED = "CANCELED",
-}
-
-enum TermUnit {
-  DAY = "DAY",
-  WEEK = "WEEK",
-  MONTH = "MONTH",
-}
-
-enum ScheduleStatus {
-  PENDING = "PENDING",
-  PARTIAL = "PARTIAL",
-  PAID = "PAID",
-  OVERDUE = "OVERDUE",
-}
+// Use Prisma client enums directly
+type Role = "ADMIN" | "BRANCH_MANAGER" | "CREDIT_OFFICER";
+type LoanStatus =
+  | "DRAFT"
+  | "PENDING_APPROVAL"
+  | "APPROVED"
+  | "ACTIVE"
+  | "COMPLETED"
+  | "DEFAULTED"
+  | "WRITTEN_OFF"
+  | "CANCELED";
+type TermUnit = "DAY" | "WEEK" | "MONTH";
+type ScheduleStatus = "PENDING" | "PARTIAL" | "PAID" | "OVERDUE";
 
 interface CreateLoanData {
   customerId: string;
@@ -127,14 +110,11 @@ export class LoanService {
     );
 
     // Determine initial loan status based on user role
-    let initialStatus: LoanStatus = LoanStatus.DRAFT;
-    if (userRole === Role.ADMIN) {
-      initialStatus = LoanStatus.APPROVED;
-    } else if (
-      userRole === Role.BRANCH_MANAGER ||
-      userRole === Role.CREDIT_OFFICER
-    ) {
-      initialStatus = LoanStatus.PENDING_APPROVAL;
+    let initialStatus: LoanStatus = "DRAFT";
+    if (userRole === "ADMIN") {
+      initialStatus = "APPROVED";
+    } else if (userRole === "BRANCH_MANAGER" || userRole === "CREDIT_OFFICER") {
+      initialStatus = "PENDING_APPROVAL";
     }
 
     // Create loan
@@ -198,13 +178,13 @@ export class LoanService {
     const endDate = new Date(startDate);
 
     switch (termUnit) {
-      case TermUnit.DAY:
+      case "DAY":
         endDate.setDate(endDate.getDate() + termCount);
         break;
-      case TermUnit.WEEK:
+      case "WEEK":
         endDate.setDate(endDate.getDate() + termCount * 7);
         break;
-      case TermUnit.MONTH:
+      case "MONTH":
         endDate.setMonth(endDate.getMonth() + termCount);
         break;
     }
@@ -236,13 +216,13 @@ export class LoanService {
       const dueDate = new Date(startDate);
 
       switch (termUnit) {
-        case TermUnit.DAY:
+        case "DAY":
           dueDate.setDate(dueDate.getDate() + i);
           break;
-        case TermUnit.WEEK:
+        case "WEEK":
           dueDate.setDate(dueDate.getDate() + i * 7);
           break;
-        case TermUnit.MONTH:
+        case "MONTH":
           dueDate.setMonth(dueDate.getMonth() + i);
           break;
       }
@@ -258,7 +238,7 @@ export class LoanService {
         feeDue: new Decimal(0),
         totalDue,
         paidAmount: new Decimal(0),
-        status: ScheduleStatus.PENDING,
+        status: "PENDING",
       });
     }
 
@@ -269,11 +249,11 @@ export class LoanService {
 
   static getYearFraction(termCount: number, termUnit: TermUnit): Decimal {
     switch (termUnit) {
-      case TermUnit.DAY:
+      case "DAY":
         return new Decimal(termCount).div(365);
-      case TermUnit.WEEK:
+      case "WEEK":
         return new Decimal(termCount).mul(7).div(365);
-      case TermUnit.MONTH:
+      case "MONTH":
         return new Decimal(termCount).div(12);
       default:
         return new Decimal(termCount).div(365); // Default to daily
@@ -303,9 +283,9 @@ export class LoanService {
     };
 
     // Role-based filtering
-    if (userRole === Role.CREDIT_OFFICER) {
+    if (userRole === "CREDIT_OFFICER") {
       where.assignedOfficerId = userId;
-    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+    } else if (userRole === "BRANCH_MANAGER" && userBranchId) {
       where.branchId = userBranchId;
     }
 
@@ -460,12 +440,12 @@ export class LoanService {
     }
 
     // Permission check
-    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
+    if (userRole === "CREDIT_OFFICER" && loan.assignedOfficerId !== userId) {
       throw new Error("You do not have permission to view this loan");
     }
 
     if (
-      userRole === Role.BRANCH_MANAGER &&
+      userRole === "BRANCH_MANAGER" &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -491,17 +471,17 @@ export class LoanService {
     }
 
     // Only drafts can be updated
-    if (loan.status !== LoanStatus.DRAFT) {
+    if (loan.status !== "DRAFT") {
       throw new Error("Only draft loans can be updated");
     }
 
     // Permission check
-    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
+    if (userRole === "CREDIT_OFFICER" && loan.assignedOfficerId !== userId) {
       throw new Error("You do not have permission to update this loan");
     }
 
     if (
-      userRole === Role.BRANCH_MANAGER &&
+      userRole === "BRANCH_MANAGER" &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -608,14 +588,14 @@ export class LoanService {
     }
 
     // Permission check
-    if (userRole === Role.CREDIT_OFFICER) {
+    if (userRole === "CREDIT_OFFICER") {
       throw new Error(
         "Credit officers cannot change loan status. Contact your branch manager."
       );
     }
 
     if (
-      userRole === Role.BRANCH_MANAGER &&
+      userRole === "BRANCH_MANAGER" &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -634,9 +614,9 @@ export class LoanService {
     }
 
     if (
-      newStatus === LoanStatus.COMPLETED ||
-      newStatus === LoanStatus.WRITTEN_OFF ||
-      newStatus === LoanStatus.CANCELED
+      newStatus === "COMPLETED" ||
+      newStatus === "WRITTEN_OFF" ||
+      newStatus === "CANCELED"
     ) {
       updateData.closedAt = new Date();
     }
@@ -664,18 +644,14 @@ export class LoanService {
     newStatus: LoanStatus
   ) {
     const validTransitions: Record<LoanStatus, LoanStatus[]> = {
-      [LoanStatus.DRAFT]: [LoanStatus.PENDING_APPROVAL, LoanStatus.CANCELED],
-      [LoanStatus.PENDING_APPROVAL]: [LoanStatus.APPROVED, LoanStatus.CANCELED],
-      [LoanStatus.APPROVED]: [LoanStatus.ACTIVE, LoanStatus.CANCELED],
-      [LoanStatus.ACTIVE]: [
-        LoanStatus.COMPLETED,
-        LoanStatus.DEFAULTED,
-        LoanStatus.WRITTEN_OFF,
-      ],
-      [LoanStatus.COMPLETED]: [],
-      [LoanStatus.DEFAULTED]: [LoanStatus.WRITTEN_OFF, LoanStatus.ACTIVE],
-      [LoanStatus.WRITTEN_OFF]: [],
-      [LoanStatus.CANCELED]: [],
+      DRAFT: ["PENDING_APPROVAL", "CANCELED"],
+      PENDING_APPROVAL: ["APPROVED", "CANCELED"],
+      APPROVED: ["ACTIVE", "CANCELED"],
+      ACTIVE: ["COMPLETED", "DEFAULTED", "WRITTEN_OFF"],
+      COMPLETED: [],
+      DEFAULTED: ["WRITTEN_OFF", "ACTIVE"],
+      WRITTEN_OFF: [],
+      CANCELED: [],
     };
 
     if (!validTransitions[currentStatus].includes(newStatus)) {
@@ -702,17 +678,17 @@ export class LoanService {
       throw new Error("Loan not found");
     }
 
-    if (loan.status !== LoanStatus.APPROVED) {
+    if (loan.status !== "APPROVED") {
       throw new Error("Only approved loans can be disbursed");
     }
 
     // Permission check
-    if (userRole === Role.CREDIT_OFFICER) {
+    if (userRole === "CREDIT_OFFICER") {
       throw new Error("Only branch managers and admins can disburse loans");
     }
 
     if (
-      userRole === Role.BRANCH_MANAGER &&
+      userRole === "BRANCH_MANAGER" &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -722,7 +698,7 @@ export class LoanService {
     const updatedLoan = await prisma.loan.update({
       where: { id },
       data: {
-        status: LoanStatus.ACTIVE,
+        status: "ACTIVE",
         disbursedAt: disbursedAt || new Date(),
       },
       include: {
@@ -757,12 +733,12 @@ export class LoanService {
     }
 
     // Permission check
-    if (userRole === Role.CREDIT_OFFICER) {
+    if (userRole === "CREDIT_OFFICER") {
       throw new Error("Credit officers cannot reassign loans");
     }
 
     if (
-      userRole === Role.BRANCH_MANAGER &&
+      userRole === "BRANCH_MANAGER" &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -778,7 +754,7 @@ export class LoanService {
       throw new Error("Officer not found or inactive");
     }
 
-    if (newOfficer.role === Role.ADMIN) {
+    if (newOfficer.role === "ADMIN") {
       throw new Error("Cannot assign loan to an admin");
     }
 
@@ -837,20 +813,17 @@ export class LoanService {
     }
 
     // Only drafts and pending approvals can be deleted
-    if (
-      loan.status !== LoanStatus.DRAFT &&
-      loan.status !== LoanStatus.PENDING_APPROVAL
-    ) {
+    if (loan.status !== "DRAFT" && loan.status !== "PENDING_APPROVAL") {
       throw new Error("Only draft or pending approval loans can be deleted");
     }
 
     // Permission check
-    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
+    if (userRole === "CREDIT_OFFICER" && loan.assignedOfficerId !== userId) {
       throw new Error("You do not have permission to delete this loan");
     }
 
     if (
-      userRole === Role.BRANCH_MANAGER &&
+      userRole === "BRANCH_MANAGER" &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -879,12 +852,12 @@ export class LoanService {
     }
 
     // Permission check
-    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
+    if (userRole === "CREDIT_OFFICER" && loan.assignedOfficerId !== userId) {
       throw new Error("You do not have permission to view this loan");
     }
 
     if (
-      userRole === Role.BRANCH_MANAGER &&
+      userRole === "BRANCH_MANAGER" &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -946,7 +919,7 @@ export class LoanService {
     const totalOutstanding = totalExpected.minus(totalPaid);
 
     const overdueItems = loan.scheduleItems.filter(
-      (item: any) => item.status === ScheduleStatus.OVERDUE
+      (item: any) => item.status === "OVERDUE"
     );
 
     const overdueAmount = overdueItems.reduce(
