@@ -68,7 +68,13 @@ export class LoanService {
     const activeLoan = await prisma.loan.findFirst({
       where: {
         customerId: data.customerId,
-        status: { in: ["ACTIVE", LoanStatus.PENDING_APPROVAL, "APPROVED"] },
+        status: {
+          in: [
+            LoanStatus.ACTIVE,
+            LoanStatus.PENDING_APPROVAL,
+            LoanStatus.APPROVED,
+          ],
+        },
         deletedAt: null,
       },
     });
@@ -606,8 +612,8 @@ export class LoanService {
     }
 
     if (
-      newStatus === "COMPLETED" ||
-      newStatus === "WRITTEN_OFF" ||
+      newStatus === LoanStatus.COMPLETED ||
+      newStatus === LoanStatus.WRITTEN_OFF ||
       newStatus === "CANCELED"
     ) {
       updateData.closedAt = new Date();
@@ -637,11 +643,15 @@ export class LoanService {
   ) {
     const validTransitions: Record<LoanStatus, LoanStatus[]> = {
       DRAFT: [LoanStatus.PENDING_APPROVAL, "CANCELED"],
-      PENDING_APPROVAL: ["APPROVED", "CANCELED"],
-      APPROVED: ["ACTIVE", "CANCELED"],
-      ACTIVE: ["COMPLETED", "DEFAULTED", "WRITTEN_OFF"],
+      PENDING_APPROVAL: [LoanStatus.APPROVED, "CANCELED"],
+      APPROVED: [LoanStatus.ACTIVE, "CANCELED"],
+      ACTIVE: [
+        LoanStatus.COMPLETED,
+        LoanStatus.DEFAULTED,
+        LoanStatus.WRITTEN_OFF,
+      ],
       COMPLETED: [],
-      DEFAULTED: ["WRITTEN_OFF", "ACTIVE"],
+      DEFAULTED: [LoanStatus.WRITTEN_OFF, LoanStatus.ACTIVE],
       WRITTEN_OFF: [],
       CANCELED: [],
     };
@@ -670,7 +680,7 @@ export class LoanService {
       throw new Error("Loan not found");
     }
 
-    if (loan.status !== "APPROVED") {
+    if (loan.status !== LoanStatus.APPROVED) {
       throw new Error("Only approved loans can be disbursed");
     }
 
@@ -690,7 +700,7 @@ export class LoanService {
     const updatedLoan = await prisma.loan.update({
       where: { id },
       data: {
-        status: "ACTIVE",
+        status: LoanStatus.ACTIVE,
         disbursedAt: disbursedAt || new Date(),
       },
       include: {
