@@ -1,36 +1,6 @@
 import { Decimal } from "@prisma/client/runtime/library";
+import { Role, LoanStatus, TermUnit, ScheduleStatus } from "@prisma/client";
 import prisma from "../prismaClient";
-
-// Define enums locally since Prisma client seems to have issues
-enum ScheduleStatus {
-  PENDING = "PENDING",
-  PARTIAL = "PARTIAL",
-  PAID = "PAID",
-  OVERDUE = "OVERDUE",
-}
-
-enum Role {
-  ADMIN = "ADMIN",
-  BRANCH_MANAGER = "BRANCH_MANAGER",
-  CREDIT_OFFICER = "CREDIT_OFFICER",
-}
-
-enum LoanStatus {
-  DRAFT = "DRAFT",
-  PENDING_APPROVAL = "PENDING_APPROVAL",
-  APPROVED = "APPROVED",
-  ACTIVE = "ACTIVE",
-  COMPLETED = "COMPLETED",
-  DEFAULTED = "DEFAULTED",
-  WRITTEN_OFF = "WRITTEN_OFF",
-  CANCELED = "CANCELED",
-}
-
-enum TermUnit {
-  DAY = "DAY",
-  WEEK = "WEEK",
-  MONTH = "MONTH",
-}
 
 interface CreateLoanData {
   customerId: string;
@@ -191,7 +161,7 @@ export class LoanService {
         termCount: data.termCount,
         termUnit: data.termUnit,
         startDate: startDate,
-        interestRate: data.interestRate || 0,
+        interestRate: 0, // Default interest rate since it's not stored in the loan model
       });
 
       await this.generateRepaymentSchedule(
@@ -200,7 +170,7 @@ export class LoanService {
         data.termCount,
         data.termUnit,
         startDate,
-        data.interestRate || 0
+        0 // Default interest rate since it's not stored in the loan model
       );
 
       console.log(
@@ -1076,7 +1046,6 @@ export class LoanService {
         termCount: true,
         termUnit: true,
         startDate: true,
-        interestRate: true,
         status: true,
       },
     });
@@ -1100,7 +1069,7 @@ export class LoanService {
           loan.termCount,
           loan.termUnit,
           loan.startDate,
-          loan.interestRate.toNumber()
+          0 // Default interest rate since it's not stored in the loan model
         );
 
         generatedCount++;
