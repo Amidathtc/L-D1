@@ -915,16 +915,33 @@ export class LoanService {
       throw new Error("Loan not found");
     }
 
-    // Permission check
-    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
-      throw new Error("You do not have permission to view this loan");
-    }
-
-    if (
-      userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      loan.branchId !== userBranchId
-    ) {
+    // Permission check based on role
+    if (userRole === Role.ADMIN) {
+      // ADMIN can view all loans
+      console.log("ADMIN user - allowing access to loan:", id);
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only view loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to view this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing access to loan in branch:",
+        userBranchId
+      );
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER can view loans they created or are assigned to
+      if (
+        loan.createdByUserId !== userId &&
+        loan.assignedOfficerId !== userId
+      ) {
+        throw new Error("You do not have permission to view this loan");
+      }
+      console.log(
+        "CREDIT_OFFICER user - allowing access to loan created by or assigned to:",
+        userId
+      );
+    } else {
+      // Unknown role - deny access
       throw new Error("You do not have permission to view this loan");
     }
 

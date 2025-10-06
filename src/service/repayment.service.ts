@@ -539,20 +539,12 @@ export class RepaymentService {
     const skip = (filters.page - 1) * filters.limit;
 
     const where: any = {
-      // deletedAt: null, // Temporarily disabled for debugging
-      loan: {
-        // Only show schedules for active loans
-        status: {
-          in: ["ACTIVE", "APPROVED", "PENDING_APPROVAL"],
-        },
-      },
+      deletedAt: null,
     };
 
-    // Apply filters
+    // Apply basic filters first
     if (filters.loanId) {
       where.loanId = filters.loanId;
-      // If filtering by specific loan, remove the loan status filter
-      delete where.loan;
     }
 
     if (filters.status) {
@@ -570,18 +562,33 @@ export class RepaymentService {
     }
 
     // Apply role-based filtering
-    // Temporarily disabled for debugging - show all schedules regardless of role
-    // if (userRole === Role.ADMIN) {
-    //   // ADMIN can see all schedules - no additional filtering
-    // } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
-    //   where.loan = {
-    //     branchId: userBranchId,
-    //   };
-    // } else if (userRole === Role.CREDIT_OFFICER) {
-    //   where.loan = {
-    //     assignedOfficerId: userId,
-    //   };
-    // }
+    if (userRole === Role.ADMIN) {
+      // ADMIN can see all schedules - no additional filtering
+      console.log("ADMIN user - showing all repayment schedules");
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only see schedules for loans in their branch
+      where.loan = {
+        branchId: userBranchId,
+        deletedAt: null,
+      };
+      console.log("BRANCH_MANAGER user - filtering by branchId:", userBranchId);
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER can only see schedules for loans they created or are assigned to
+      where.loan = {
+        OR: [{ createdByUserId: userId }, { assignedOfficerId: userId }],
+        deletedAt: null,
+      };
+      console.log(
+        "CREDIT_OFFICER user - filtering by createdByUserId or assignedOfficerId:",
+        userId
+      );
+    } else {
+      // Unknown role - restrict access
+      where.loan = {
+        id: "non-existent-id", // This will return no results
+      };
+      console.log("Unknown user role - restricting access");
+    }
 
     console.log("Final where clause:", JSON.stringify(where, null, 2));
 
