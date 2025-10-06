@@ -68,13 +68,7 @@ export class LoanService {
     const activeLoan = await prisma.loan.findFirst({
       where: {
         customerId: data.customerId,
-        status: {
-          in: [
-            LoanStatus.ACTIVE,
-            LoanStatus.PENDING_APPROVAL,
-            LoanStatus.APPROVED,
-          ],
-        },
+        status: { in: [LoanStatus.ACTIVE, LoanStatus.PENDING_APPROVAL, LoanStatus.APPROVED] },
         deletedAt: null,
       },
     });
@@ -614,7 +608,7 @@ export class LoanService {
     if (
       newStatus === LoanStatus.COMPLETED ||
       newStatus === LoanStatus.WRITTEN_OFF ||
-      newStatus === "CANCELED"
+      newStatus === LoanStatus.CANCELED
     ) {
       updateData.closedAt = new Date();
     }
@@ -642,14 +636,10 @@ export class LoanService {
     newStatus: LoanStatus
   ) {
     const validTransitions: Record<LoanStatus, LoanStatus[]> = {
-      DRAFT: [LoanStatus.PENDING_APPROVAL, "CANCELED"],
-      PENDING_APPROVAL: [LoanStatus.APPROVED, "CANCELED"],
-      APPROVED: [LoanStatus.ACTIVE, "CANCELED"],
-      ACTIVE: [
-        LoanStatus.COMPLETED,
-        LoanStatus.DEFAULTED,
-        LoanStatus.WRITTEN_OFF,
-      ],
+      DRAFT: [LoanStatus.PENDING_APPROVAL, LoanStatus.CANCELED],
+      PENDING_APPROVAL: [LoanStatus.APPROVED, LoanStatus.CANCELED],
+      APPROVED: [LoanStatus.ACTIVE, LoanStatus.CANCELED],
+      ACTIVE: [LoanStatus.COMPLETED, LoanStatus.DEFAULTED, LoanStatus.WRITTEN_OFF],
       COMPLETED: [],
       DEFAULTED: [LoanStatus.WRITTEN_OFF, LoanStatus.ACTIVE],
       WRITTEN_OFF: [],
