@@ -713,7 +713,6 @@ export class RepaymentService {
                   select: {
                     id: true,
                     email: true,
-                    name: true,
                   },
                 },
               },
