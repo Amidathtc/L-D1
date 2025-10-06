@@ -539,12 +539,20 @@ export class RepaymentService {
     const skip = (filters.page - 1) * filters.limit;
 
     const where: any = {
-      deletedAt: null,
+      // deletedAt: null, // Temporarily disabled for debugging
+      loan: {
+        // Only show schedules for active loans
+        status: {
+          in: ["ACTIVE", "APPROVED", "PENDING_APPROVAL"],
+        },
+      },
     };
 
     // Apply filters
     if (filters.loanId) {
       where.loanId = filters.loanId;
+      // If filtering by specific loan, remove the loan status filter
+      delete where.loan;
     }
 
     if (filters.status) {
@@ -562,19 +570,35 @@ export class RepaymentService {
     }
 
     // Apply role-based filtering
-    if (userRole === Role.ADMIN) {
-      // ADMIN can see all schedules - no additional filtering
-    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
-      where.loan = {
-        branchId: userBranchId,
-      };
-    } else if (userRole === Role.CREDIT_OFFICER) {
-      where.loan = {
-        assignedOfficerId: userId,
-      };
-    }
+    // Temporarily disabled for debugging - show all schedules regardless of role
+    // if (userRole === Role.ADMIN) {
+    //   // ADMIN can see all schedules - no additional filtering
+    // } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+    //   where.loan = {
+    //     branchId: userBranchId,
+    //   };
+    // } else if (userRole === Role.CREDIT_OFFICER) {
+    //   where.loan = {
+    //     assignedOfficerId: userId,
+    //   };
+    // }
 
     console.log("Final where clause:", JSON.stringify(where, null, 2));
+
+    // Debug: Check if there are any repayment schedule items at all
+    const totalScheduleItems = await prisma.repaymentScheduleItem.count();
+    console.log(
+      "Total repayment schedule items in database:",
+      totalScheduleItems
+    );
+
+    const totalActiveScheduleItems = await prisma.repaymentScheduleItem.count({
+      where: { deletedAt: null },
+    });
+    console.log(
+      "Total active repayment schedule items:",
+      totalActiveScheduleItems
+    );
 
     const [schedules, total] = await Promise.all([
       prisma.repaymentScheduleItem.findMany({
