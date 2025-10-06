@@ -13,6 +13,7 @@ import branchTransferRoutes from "./branch-transfer.routes";
 import userActivityRoutes from "./user-activity.routes";
 import notesRoutes from "./notes.routes";
 import branchAnalyticsRoutes from "./branch-analytics.routes";
+import assignmentHistoryRoutes from "./assignment-history.routes";
 
 const router = Router();
 
@@ -43,5 +44,6 @@ router.use("/branch-transfers", branchTransferRoutes);
 router.use("/user-activity", userActivityRoutes);
 router.use("/notes", notesRoutes);
 router.use("/analytics", branchAnalyticsRoutes);
+router.use("/assignment-history", assignmentHistoryRoutes);
 
 export default router;
