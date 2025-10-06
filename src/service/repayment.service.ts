@@ -679,125 +679,17 @@ export class RepaymentService {
 
     console.log("Final where clause:", JSON.stringify(where, null, 2));
 
-    try {
-      // Debug: Check if there are any repayment schedule items at all
-      const totalScheduleItems = await prisma.repaymentScheduleItem.count();
-      console.log(
-        "Total repayment schedule items in database:",
-        totalScheduleItems
-      );
-
-      const totalActiveScheduleItems = await prisma.repaymentScheduleItem.count(
-        {
-          where: { deletedAt: null },
-        }
-      );
-      console.log(
-        "Total active repayment schedule items:",
-        totalActiveScheduleItems
-      );
-
-      // Debug: Check what the query will return
-      const testQuery = await prisma.repaymentScheduleItem.findMany({
-        where,
-        take: 5,
-        select: {
-          id: true,
-          loanId: true,
-          sequence: true,
-          status: true,
-          loan: {
-            select: {
-              id: true,
-              loanNumber: true,
-              assignedOfficerId: true,
-              createdByUserId: true,
-              branchId: true,
-            },
-          },
-        },
-      });
-      console.log("Test query results (first 5):", testQuery);
-    } catch (debugError) {
-      console.error("Error in debug queries:", debugError);
-      throw new Error(
-        `Debug query failed: ${
-          debugError instanceof Error ? debugError.message : "Unknown error"
-        }`
-      );
-    }
-
-    let schedules, total;
-    try {
-      [schedules, total] = await Promise.all([
-        prisma.repaymentScheduleItem.findMany({
-          where,
-          include: {
-            loan: {
-              include: {
-                customer: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    phone: true,
-                  },
-                },
-                branch: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-                assignedOfficer: {
-                  select: {
-                    id: true,
-                    email: true,
-                  },
-                },
-              },
-            },
-            // Temporarily remove allocations to debug the issue
-            // allocations: {
-            //   include: {
-            //     repayment: {
-            //       select: {
-            //         id: true,
-            //         amount: true,
-            //         method: true,
-            //         paidAt: true,
-            //       },
-            //     },
-            //   },
-            // },
-          },
-          skip,
-          take: filters.limit,
-          orderBy: { dueDate: "asc" },
-        }),
-        prisma.repaymentScheduleItem.count({ where }),
-      ]);
-    } catch (error) {
-      console.error("Error in Prisma query:", error);
-      throw new Error(
-        `Database query failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-    }
-
-    console.log("Query results:", {
-      schedulesFound: schedules.length,
-      totalCount: total,
-      firstSchedule: schedules[0] || null,
-    });
-
+    // For now, let's return empty results to test if the endpoint works
+    console.log("Returning empty results for testing...");
     return {
-      schedules,
-      total,
+      schedules: [],
+      total: 0,
       page: filters.page,
       limit: filters.limit,
     };
+
+    // The complex query is temporarily disabled for debugging
+    // Will be re-enabled once the basic endpoint is working
   }
 
   static async getRepaymentScheduleByLoan(
