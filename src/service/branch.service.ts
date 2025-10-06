@@ -254,8 +254,13 @@ export class BranchService {
         });
 
         if (existingManagement) {
-          throw new Error(
-            `Manager ${manager.email} is already assigned to branch ${existingManagement.name} (${existingManagement.code})`
+          // If manager is being reassigned to a different branch, unassign from current branch first
+          await prisma.branch.update({
+            where: { id: existingManagement.id },
+            data: { managerId: null },
+          });
+          console.log(
+            `Unassigned manager ${manager.email} from branch ${existingManagement.name} (${existingManagement.code})`
           );
         }
       }

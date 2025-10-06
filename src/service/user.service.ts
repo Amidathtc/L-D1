@@ -241,18 +241,31 @@ export class UserService {
     }
 
     // Role-based access restrictions
-    if (userRole === Role.BRANCH_MANAGER && userBranchId) {
-      // Branch managers can only see users from their branch
-      if (user.branchId !== userBranchId) {
+    if (userRole === Role.ADMIN) {
+      // ADMIN can view any user
+      console.log("ADMIN user - allowing access to user:", id);
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // Branch managers can view users from their branch or unassigned users
+      if (user.branchId && user.branchId !== userBranchId) {
         throw new Error("You can only view users from your own branch");
       }
+      console.log(
+        "BRANCH_MANAGER user - allowing access to user in branch:",
+        userBranchId
+      );
     } else if (userRole === Role.CREDIT_OFFICER && userBranchId) {
-      // Credit officers can only see users from their branch
-      if (user.branchId !== userBranchId) {
+      // Credit officers can view users from their branch or unassigned users
+      if (user.branchId && user.branchId !== userBranchId) {
         throw new Error("You can only view users from your own branch");
       }
+      console.log(
+        "CREDIT_OFFICER user - allowing access to user in branch:",
+        userBranchId
+      );
+    } else {
+      // Unknown role - deny access
+      throw new Error("You do not have permission to view this user");
     }
-    // Admins can see any user
 
     return user;
   }
@@ -282,16 +295,27 @@ export class UserService {
       }
     }
 
-    // Validate branch if changing role
-    if (
-      data.role &&
-      data.role !== Role.ADMIN &&
-      !data.branchId &&
-      !user.branchId
-    ) {
-      throw new Error(
-        "Branch Manager and Credit Officer must be assigned to a branch"
-      );
+    // Validate branch assignment
+    if (data.branchId) {
+      // Validate that the branch exists and is active
+      const branch = await prisma.branch.findUnique({
+        where: { id: data.branchId },
+      });
+
+      if (!branch || branch.deletedAt || !branch.isActive) {
+        throw new Error("Invalid or inactive branch");
+      }
+    }
+
+    // Validate role and branch combination
+    if (data.role && data.role !== Role.ADMIN) {
+      // For non-admin roles, ensure they have a branch
+      const targetBranchId = data.branchId || user.branchId;
+      if (!targetBranchId) {
+        throw new Error(
+          "Branch Manager and Credit Officer must be assigned to a branch"
+        );
+      }
     }
 
     const updatedUser = await prisma.user.update({
