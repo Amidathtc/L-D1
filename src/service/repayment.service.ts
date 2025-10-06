@@ -632,8 +632,8 @@ export class RepaymentService {
       }
     }
 
-    // Apply role-based filtering - temporarily disabled for debugging
-    console.log("Role-based filtering temporarily disabled for debugging");
+    // Apply role-based filtering
+    console.log("Applying role-based filtering");
     console.log(
       "User role:",
       userRole,
@@ -642,120 +642,144 @@ export class RepaymentService {
       "Branch ID:",
       userBranchId
     );
-    // if (userRole === Role.ADMIN) {
-    //   // ADMIN can see all schedules - no additional filtering
-    //   console.log("ADMIN user - showing all repayment schedules");
-    // } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
-    //   // BRANCH_MANAGER can only see schedules for loans in their branch
-    //   where.loan = {
-    //     branchId: userBranchId,
-    //     deletedAt: null,
-    //   };
-    //   console.log("BRANCH_MANAGER user - filtering by branchId:", userBranchId);
-    // } else if (userRole === Role.CREDIT_OFFICER) {
-    //   // CREDIT_OFFICER can only see schedules for loans they created or are assigned to
-    //   where.loan = {
-    //     OR: [{ createdByUserId: userId }, { assignedOfficerId: userId }],
-    //     deletedAt: null,
-    //   };
-    //   console.log(
-    //     "CREDIT_OFFICER user - filtering by createdByUserId or assignedOfficerId:",
-    //     userId
-    //   );
-    // } else {
-    //   // Unknown role - restrict access
-    //   where.loan = {
-    //     id: "non-existent-id", // This will return no results
-    //   };
-    //   console.log("Unknown user role - restricting access");
-    // }
+
+    if (userRole === Role.ADMIN) {
+      // ADMIN can see all schedules - no additional filtering
+      console.log("ADMIN user - showing all repayment schedules");
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only see schedules for loans in their branch
+      where.loan = {
+        branchId: userBranchId,
+        deletedAt: null,
+      };
+      console.log("BRANCH_MANAGER user - filtering by branchId:", userBranchId);
+    } else if (userRole === Role.CREDIT_OFFICER && userId) {
+      // CREDIT_OFFICER can only see schedules for loans they created or are assigned to
+      where.loan = {
+        OR: [{ createdByUserId: userId }, { assignedOfficerId: userId }],
+        deletedAt: null,
+      };
+      console.log(
+        "CREDIT_OFFICER user - filtering by createdByUserId or assignedOfficerId:",
+        userId
+      );
+    } else {
+      // Unknown role or missing required data - restrict access
+      console.log(
+        "Unknown user role or missing required data - restricting access"
+      );
+      where.loan = {
+        id: "non-existent-id", // This will return no results
+      };
+    }
 
     console.log("Final where clause:", JSON.stringify(where, null, 2));
 
-    // Debug: Check if there are any repayment schedule items at all
-    const totalScheduleItems = await prisma.repaymentScheduleItem.count();
-    console.log(
-      "Total repayment schedule items in database:",
-      totalScheduleItems
-    );
+    try {
+      // Debug: Check if there are any repayment schedule items at all
+      const totalScheduleItems = await prisma.repaymentScheduleItem.count();
+      console.log(
+        "Total repayment schedule items in database:",
+        totalScheduleItems
+      );
 
-    const totalActiveScheduleItems = await prisma.repaymentScheduleItem.count({
-      where: { deletedAt: null },
-    });
-    console.log(
-      "Total active repayment schedule items:",
-      totalActiveScheduleItems
-    );
+      const totalActiveScheduleItems = await prisma.repaymentScheduleItem.count(
+        {
+          where: { deletedAt: null },
+        }
+      );
+      console.log(
+        "Total active repayment schedule items:",
+        totalActiveScheduleItems
+      );
 
-    // Debug: Check what the query will return
-    const testQuery = await prisma.repaymentScheduleItem.findMany({
-      where,
-      take: 5,
-      select: {
-        id: true,
-        loanId: true,
-        sequence: true,
-        status: true,
-        loan: {
-          select: {
-            id: true,
-            loanNumber: true,
-            assignedOfficerId: true,
-            createdByUserId: true,
-            branchId: true,
-          },
-        },
-      },
-    });
-    console.log("Test query results (first 5):", testQuery);
-
-    const [schedules, total] = await Promise.all([
-      prisma.repaymentScheduleItem.findMany({
+      // Debug: Check what the query will return
+      const testQuery = await prisma.repaymentScheduleItem.findMany({
         where,
-        include: {
+        take: 5,
+        select: {
+          id: true,
+          loanId: true,
+          sequence: true,
+          status: true,
           loan: {
-            include: {
-              customer: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  phone: true,
-                },
-              },
-              branch: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-              assignedOfficer: {
-                select: {
-                  id: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          allocations: {
-            include: {
-              repayment: {
-                select: {
-                  id: true,
-                  amount: true,
-                  method: true,
-                  paidAt: true,
-                },
-              },
+            select: {
+              id: true,
+              loanNumber: true,
+              assignedOfficerId: true,
+              createdByUserId: true,
+              branchId: true,
             },
           },
         },
-        skip,
-        take: filters.limit,
-        orderBy: { dueDate: "asc" },
-      }),
-      prisma.repaymentScheduleItem.count({ where }),
-    ]);
+      });
+      console.log("Test query results (first 5):", testQuery);
+    } catch (debugError) {
+      console.error("Error in debug queries:", debugError);
+      throw new Error(
+        `Debug query failed: ${
+          debugError instanceof Error ? debugError.message : "Unknown error"
+        }`
+      );
+    }
+
+    let schedules, total;
+    try {
+      [schedules, total] = await Promise.all([
+        prisma.repaymentScheduleItem.findMany({
+          where,
+          include: {
+            loan: {
+              include: {
+                customer: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    phone: true,
+                  },
+                },
+                branch: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                assignedOfficer: {
+                  select: {
+                    id: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+            allocations: {
+              include: {
+                repayment: {
+                  select: {
+                    id: true,
+                    amount: true,
+                    method: true,
+                    paidAt: true,
+                  },
+                },
+              },
+            },
+          },
+          skip,
+          take: filters.limit,
+          orderBy: { dueDate: "asc" },
+        }),
+        prisma.repaymentScheduleItem.count({ where }),
+      ]);
+    } catch (error) {
+      console.error("Error in Prisma query:", error);
+      throw new Error(
+        `Database query failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
 
     console.log("Query results:", {
       schedulesFound: schedules.length,
