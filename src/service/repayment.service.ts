@@ -216,14 +216,32 @@ export class RepaymentService {
     };
 
     // Role-based filtering
-    if (userRole === Role.CREDIT_OFFICER) {
-      where.loan = {
-        assignedOfficerId: userId,
-      };
+    if (userRole === Role.ADMIN) {
+      // ADMIN can see all repayments - no additional filtering
+      console.log("ADMIN user - showing all repayments");
     } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only see repayments from their branch
       where.loan = {
         branchId: userBranchId,
+        deletedAt: null,
       };
+      console.log("BRANCH_MANAGER user - filtering by branchId:", userBranchId);
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER can see repayments for loans they created or are assigned to
+      where.loan = {
+        OR: [{ assignedOfficerId: userId }, { createdByUserId: userId }],
+        deletedAt: null,
+      };
+      console.log(
+        "CREDIT_OFFICER user - filtering by assignedOfficerId or createdByUserId:",
+        userId
+      );
+    } else {
+      // Unknown role - restrict access
+      where.loan = {
+        id: "non-existent-id", // This will return no results
+      };
+      console.log("Unknown user role - restricting access");
     }
 
     if (filters.loanId) {
@@ -301,14 +319,31 @@ export class RepaymentService {
     userBranchId?: string,
     userId?: string
   ) {
+    console.log("getRepaymentById called with:", {
+      id,
+      userRole,
+      userBranchId,
+      userId,
+    });
+
     const repayment = await prisma.repayment.findUnique({
-      where: { id },
+      where: {
+        id,
+        deletedAt: null, // Only get non-deleted repayments
+      },
       include: {
         loan: {
           include: {
             customer: true,
             branch: true,
             assignedOfficer: {
+              select: {
+                id: true,
+                email: true,
+                role: true,
+              },
+            },
+            createdBy: {
               select: {
                 id: true,
                 email: true,
@@ -332,23 +367,59 @@ export class RepaymentService {
       },
     });
 
-    if (!repayment || repayment.deletedAt) {
+    if (!repayment) {
+      console.log("Repayment not found for ID:", id);
       throw new Error("Repayment not found");
     }
 
-    // Permission check
-    if (
-      userRole === Role.CREDIT_OFFICER &&
-      repayment.loan.assignedOfficerId !== userId
-    ) {
-      throw new Error("You do not have permission to view this repayment");
-    }
+    console.log("Repayment found:", {
+      id: repayment.id,
+      loanId: repayment.loanId,
+      loanBranchId: repayment.loan.branchId,
+      assignedOfficerId: repayment.loan.assignedOfficerId,
+      createdByUserId: repayment.loan.createdByUserId,
+    });
 
-    if (
-      userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      repayment.loan.branchId !== userBranchId
-    ) {
+    // Permission check based on role
+    if (userRole === Role.ADMIN) {
+      // ADMIN can view any repayment
+      console.log("ADMIN user - allowing access to repayment:", id);
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only view repayments from their branch
+      if (repayment.loan.branchId !== userBranchId) {
+        console.log("BRANCH_MANAGER access denied - branch mismatch:", {
+          userBranchId,
+          loanBranchId: repayment.loan.branchId,
+        });
+        throw new Error("You do not have permission to view this repayment");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing access to repayment in branch:",
+        userBranchId
+      );
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER can view repayments for loans they created or are assigned to
+      if (
+        repayment.loan.assignedOfficerId !== userId &&
+        repayment.loan.createdByUserId !== userId
+      ) {
+        console.log(
+          "CREDIT_OFFICER access denied - not assigned or created by user:",
+          {
+            userId,
+            assignedOfficerId: repayment.loan.assignedOfficerId,
+            createdByUserId: repayment.loan.createdByUserId,
+          }
+        );
+        throw new Error("You do not have permission to view this repayment");
+      }
+      console.log(
+        "CREDIT_OFFICER user - allowing access to repayment for loan created/assigned to:",
+        userId
+      );
+    } else {
+      // Unknown role - deny access
+      console.log("Unknown user role - denying access");
       throw new Error("You do not have permission to view this repayment");
     }
 
