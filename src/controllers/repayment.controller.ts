@@ -146,10 +146,30 @@ export class RepaymentController {
     next: NextFunction
   ) {
     try {
-      console.log("getRepaymentSchedules controller called");
+      console.log("=== getRepaymentSchedules controller called ===");
+      console.log("Request method:", req.method);
+      console.log("Request URL:", req.url);
+      console.log("Request path:", req.path);
       console.log("Request user:", req.user);
       console.log("Request query:", req.query);
 
+      // Return a simple test response first
+      console.log("Returning test response...");
+      return ApiResponseUtil.success(
+        res,
+        {
+          schedules: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+          message: "Test response from getRepaymentSchedules",
+        },
+        "Test response - getRepaymentSchedules endpoint is working",
+        200
+      );
+
+      // Commented out the original logic for now
+      /*
       if (!req.user) {
         console.error("No user found in request");
         return ApiResponseUtil.error(res, "Authentication required", 401);
@@ -193,6 +213,7 @@ export class RepaymentController {
         result.total,
         "Repayment schedules retrieved successfully"
       );
+      */
     } catch (error: any) {
       console.error("Error in getRepaymentSchedules controller:", error);
       console.error("Error message:", error.message);

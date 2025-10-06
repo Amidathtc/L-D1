@@ -24,6 +24,19 @@ router.post(
   RepaymentController.createRepayment
 );
 
+// Repayment schedule routes (must come before /:id route)
+router.get(
+  "/schedules",
+  requireStaff,
+  RepaymentController.getRepaymentSchedules
+);
+router.get(
+  "/schedules/:loanId",
+  requireStaff,
+  RepaymentController.getRepaymentScheduleByLoan
+);
+router.get("/summary", requireStaff, RepaymentController.getRepaymentSummary);
+
 router.get("/", requireStaff, RepaymentController.getRepayments);
 
 router.get("/:id", requireStaff, RepaymentController.getRepaymentById);
@@ -42,18 +55,5 @@ router.delete(
   auditLog("REPAYMENT_DELETED", "Repayment"),
   RepaymentController.deleteRepayment
 );
-
-// Repayment schedule routes
-router.get(
-  "/schedules",
-  requireStaff,
-  RepaymentController.getRepaymentSchedules
-);
-router.get(
-  "/schedules/:loanId",
-  requireStaff,
-  RepaymentController.getRepaymentScheduleByLoan
-);
-router.get("/summary", requireStaff, RepaymentController.getRepaymentSummary);
 
 export default router;
