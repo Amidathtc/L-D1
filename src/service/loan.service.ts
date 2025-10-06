@@ -1,5 +1,6 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import prisma from "../prismaClient";
+import { ScheduleStatus } from "@prisma/client";
 
 // Use Prisma client enums directly
 type Role = "ADMIN" | "BRANCH_MANAGER" | "CREDIT_OFFICER";
@@ -13,7 +14,6 @@ type LoanStatus =
   | "WRITTEN_OFF"
   | "CANCELED";
 type TermUnit = "DAY" | "WEEK" | "MONTH";
-type ScheduleStatus = "PENDING" | "PARTIAL" | "PAID" | "OVERDUE";
 
 interface CreateLoanData {
   customerId: string;
@@ -238,7 +238,7 @@ export class LoanService {
         feeDue: new Decimal(0),
         totalDue,
         paidAmount: new Decimal(0),
-        status: "PENDING",
+        status: ScheduleStatus.PENDING,
       });
     }
 
@@ -919,7 +919,7 @@ export class LoanService {
     const totalOutstanding = totalExpected.minus(totalPaid);
 
     const overdueItems = loan.scheduleItems.filter(
-      (item: any) => item.status === "OVERDUE"
+      (item: any) => item.status === ScheduleStatus.OVERDUE
     );
 
     const overdueAmount = overdueItems.reduce(
