@@ -1,19 +1,8 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import prisma from "../prismaClient";
-import { ScheduleStatus } from "@prisma/client";
+import { ScheduleStatus, Role, LoanStatus, TermUnit } from "@prisma/client";
 
 // Use Prisma client enums directly
-type Role = "ADMIN" | "BRANCH_MANAGER" | "CREDIT_OFFICER";
-type LoanStatus =
-  | "DRAFT"
-  | "PENDING_APPROVAL"
-  | "APPROVED"
-  | "ACTIVE"
-  | "COMPLETED"
-  | "DEFAULTED"
-  | "WRITTEN_OFF"
-  | "CANCELED";
-type TermUnit = "DAY" | "WEEK" | "MONTH";
 
 interface CreateLoanData {
   customerId: string;
@@ -79,7 +68,7 @@ export class LoanService {
     const activeLoan = await prisma.loan.findFirst({
       where: {
         customerId: data.customerId,
-        status: { in: ["ACTIVE", "PENDING_APPROVAL", "APPROVED"] },
+        status: { in: ["ACTIVE", LoanStatus.PENDING_APPROVAL, "APPROVED"] },
         deletedAt: null,
       },
     });
@@ -110,11 +99,14 @@ export class LoanService {
     );
 
     // Determine initial loan status based on user role
-    let initialStatus: LoanStatus = "DRAFT";
-    if (userRole === "ADMIN") {
-      initialStatus = "APPROVED";
-    } else if (userRole === "BRANCH_MANAGER" || userRole === "CREDIT_OFFICER") {
-      initialStatus = "PENDING_APPROVAL";
+    let initialStatus: LoanStatus = LoanStatus.DRAFT;
+    if (userRole === Role.ADMIN) {
+      initialStatus = LoanStatus.APPROVED;
+    } else if (
+      userRole === Role.BRANCH_MANAGER ||
+      userRole === Role.CREDIT_OFFICER
+    ) {
+      initialStatus = LoanStatus.PENDING_APPROVAL;
     }
 
     // Create loan
@@ -283,9 +275,9 @@ export class LoanService {
     };
 
     // Role-based filtering
-    if (userRole === "CREDIT_OFFICER") {
+    if (userRole === Role.CREDIT_OFFICER) {
       where.assignedOfficerId = userId;
-    } else if (userRole === "BRANCH_MANAGER" && userBranchId) {
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
       where.branchId = userBranchId;
     }
 
@@ -440,12 +432,12 @@ export class LoanService {
     }
 
     // Permission check
-    if (userRole === "CREDIT_OFFICER" && loan.assignedOfficerId !== userId) {
+    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
       throw new Error("You do not have permission to view this loan");
     }
 
     if (
-      userRole === "BRANCH_MANAGER" &&
+      userRole === Role.BRANCH_MANAGER &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -471,17 +463,17 @@ export class LoanService {
     }
 
     // Only drafts can be updated
-    if (loan.status !== "DRAFT") {
+    if (loan.status !== LoanStatus.DRAFT) {
       throw new Error("Only draft loans can be updated");
     }
 
     // Permission check
-    if (userRole === "CREDIT_OFFICER" && loan.assignedOfficerId !== userId) {
+    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
       throw new Error("You do not have permission to update this loan");
     }
 
     if (
-      userRole === "BRANCH_MANAGER" &&
+      userRole === Role.BRANCH_MANAGER &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -588,14 +580,14 @@ export class LoanService {
     }
 
     // Permission check
-    if (userRole === "CREDIT_OFFICER") {
+    if (userRole === Role.CREDIT_OFFICER) {
       throw new Error(
         "Credit officers cannot change loan status. Contact your branch manager."
       );
     }
 
     if (
-      userRole === "BRANCH_MANAGER" &&
+      userRole === Role.BRANCH_MANAGER &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -644,7 +636,7 @@ export class LoanService {
     newStatus: LoanStatus
   ) {
     const validTransitions: Record<LoanStatus, LoanStatus[]> = {
-      DRAFT: ["PENDING_APPROVAL", "CANCELED"],
+      DRAFT: [LoanStatus.PENDING_APPROVAL, "CANCELED"],
       PENDING_APPROVAL: ["APPROVED", "CANCELED"],
       APPROVED: ["ACTIVE", "CANCELED"],
       ACTIVE: ["COMPLETED", "DEFAULTED", "WRITTEN_OFF"],
@@ -683,12 +675,12 @@ export class LoanService {
     }
 
     // Permission check
-    if (userRole === "CREDIT_OFFICER") {
+    if (userRole === Role.CREDIT_OFFICER) {
       throw new Error("Only branch managers and admins can disburse loans");
     }
 
     if (
-      userRole === "BRANCH_MANAGER" &&
+      userRole === Role.BRANCH_MANAGER &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -733,12 +725,12 @@ export class LoanService {
     }
 
     // Permission check
-    if (userRole === "CREDIT_OFFICER") {
+    if (userRole === Role.CREDIT_OFFICER) {
       throw new Error("Credit officers cannot reassign loans");
     }
 
     if (
-      userRole === "BRANCH_MANAGER" &&
+      userRole === Role.BRANCH_MANAGER &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -754,7 +746,7 @@ export class LoanService {
       throw new Error("Officer not found or inactive");
     }
 
-    if (newOfficer.role === "ADMIN") {
+    if (newOfficer.role === Role.ADMIN) {
       throw new Error("Cannot assign loan to an admin");
     }
 
@@ -813,17 +805,20 @@ export class LoanService {
     }
 
     // Only drafts and pending approvals can be deleted
-    if (loan.status !== "DRAFT" && loan.status !== "PENDING_APPROVAL") {
+    if (
+      loan.status !== LoanStatus.DRAFT &&
+      loan.status !== LoanStatus.PENDING_APPROVAL
+    ) {
       throw new Error("Only draft or pending approval loans can be deleted");
     }
 
     // Permission check
-    if (userRole === "CREDIT_OFFICER" && loan.assignedOfficerId !== userId) {
+    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
       throw new Error("You do not have permission to delete this loan");
     }
 
     if (
-      userRole === "BRANCH_MANAGER" &&
+      userRole === Role.BRANCH_MANAGER &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
@@ -852,12 +847,12 @@ export class LoanService {
     }
 
     // Permission check
-    if (userRole === "CREDIT_OFFICER" && loan.assignedOfficerId !== userId) {
+    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
       throw new Error("You do not have permission to view this loan");
     }
 
     if (
-      userRole === "BRANCH_MANAGER" &&
+      userRole === Role.BRANCH_MANAGER &&
       userBranchId &&
       loan.branchId !== userBranchId
     ) {
