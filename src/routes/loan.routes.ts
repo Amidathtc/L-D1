@@ -2,6 +2,7 @@ import { Router } from "express";
 import { LoanController } from "../controllers/loan.controller";
 import { authenticate } from "../middlewares/auth.middleware";
 import {
+  requireAdmin,
   requireBranchManager,
   requireStaff,
 } from "../middlewares/role.middleware";
@@ -71,6 +72,14 @@ router.delete(
   "/:id",
   auditLog("LOAN_DELETED", "Loan"),
   LoanController.deleteLoan
+);
+
+// Generate missing repayment schedules (Admin only)
+router.post(
+  "/generate-missing-schedules",
+  requireAdmin,
+  auditLog("MISSING_SCHEDULES_GENERATED", "Loan"),
+  LoanController.generateMissingSchedules
 );
 
 export default router;

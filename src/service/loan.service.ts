@@ -1,8 +1,36 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import prisma from "../prismaClient";
-import { ScheduleStatus, Role, LoanStatus, TermUnit } from "@prisma/client";
 
-// Use Prisma client enums directly
+// Define enums locally since Prisma client seems to have issues
+enum ScheduleStatus {
+  PENDING = "PENDING",
+  PARTIAL = "PARTIAL",
+  PAID = "PAID",
+  OVERDUE = "OVERDUE",
+}
+
+enum Role {
+  ADMIN = "ADMIN",
+  BRANCH_MANAGER = "BRANCH_MANAGER",
+  CREDIT_OFFICER = "CREDIT_OFFICER",
+}
+
+enum LoanStatus {
+  DRAFT = "DRAFT",
+  PENDING_APPROVAL = "PENDING_APPROVAL",
+  APPROVED = "APPROVED",
+  ACTIVE = "ACTIVE",
+  COMPLETED = "COMPLETED",
+  DEFAULTED = "DEFAULTED",
+  WRITTEN_OFF = "WRITTEN_OFF",
+  CANCELED = "CANCELED",
+}
+
+enum TermUnit {
+  DAY = "DAY",
+  WEEK = "WEEK",
+  MONTH = "MONTH",
+}
 
 interface CreateLoanData {
   customerId: string;
@@ -176,17 +204,20 @@ export class LoanService {
       );
 
       console.log(
-        "Repayment schedule generated successfully for loan:",
+        "✅ Repayment schedule generated successfully for loan:",
         loan.id
       );
     } catch (error) {
       console.error(
-        "Failed to generate repayment schedule for loan:",
+        "❌ Failed to generate repayment schedule for loan:",
         loan.id,
         error
       );
-      // Don't throw error to prevent loan creation from failing
-      // The repayment schedule can be generated later when the loan is approved
+      console.error("Error details:", error);
+
+      // For now, don't throw error to prevent loan creation from failing
+      // The repayment schedule can be generated later using the generateMissingSchedules method
+      // TODO: Consider making schedule generation mandatory for certain loan statuses
     }
 
     return loan;
@@ -1022,6 +1053,77 @@ export class LoanService {
         ? totalPaid.div(totalExpected).mul(100).toFixed(2)
         : "0.00",
       status: loan.status,
+    };
+  }
+
+  static async generateMissingSchedules() {
+    console.log("Checking for loans without repayment schedules...");
+
+    // Find loans that don't have repayment schedules
+    const loansWithoutSchedules = await prisma.loan.findMany({
+      where: {
+        deletedAt: null,
+        scheduleItems: {
+          none: {
+            deletedAt: null,
+          },
+        },
+      },
+      select: {
+        id: true,
+        loanNumber: true,
+        principalAmount: true,
+        termCount: true,
+        termUnit: true,
+        startDate: true,
+        interestRate: true,
+        status: true,
+      },
+    });
+
+    console.log(
+      `Found ${loansWithoutSchedules.length} loans without repayment schedules`
+    );
+
+    let generatedCount = 0;
+    let errorCount = 0;
+
+    for (const loan of loansWithoutSchedules) {
+      try {
+        console.log(
+          `Generating schedule for loan ${loan.loanNumber} (${loan.id})`
+        );
+
+        await this.generateRepaymentSchedule(
+          loan.id,
+          loan.principalAmount.toNumber(),
+          loan.termCount,
+          loan.termUnit,
+          loan.startDate,
+          loan.interestRate.toNumber()
+        );
+
+        generatedCount++;
+        console.log(
+          `✅ Successfully generated schedule for loan ${loan.loanNumber}`
+        );
+      } catch (error) {
+        errorCount++;
+        console.error(
+          `❌ Failed to generate schedule for loan ${loan.loanNumber}:`,
+          error
+        );
+      }
+    }
+
+    console.log(
+      `Schedule generation complete: ${generatedCount} successful, ${errorCount} failed`
+    );
+
+    return {
+      totalLoans: loansWithoutSchedules.length,
+      generatedCount,
+      errorCount,
     };
   }
 }

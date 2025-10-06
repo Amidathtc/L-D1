@@ -239,4 +239,31 @@ export class LoanController {
       next(error);
     }
   }
+
+  static async generateMissingSchedules(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      // Only allow ADMIN users to generate missing schedules
+      if (req.user!.role !== "ADMIN") {
+        return ApiResponseUtil.error(
+          res,
+          "Only administrators can generate missing schedules",
+          403
+        );
+      }
+
+      const result = await LoanService.generateMissingSchedules();
+
+      return ApiResponseUtil.success(
+        res,
+        result,
+        `Generated ${result.generatedCount} missing schedules out of ${result.totalLoans} loans`
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
 }
