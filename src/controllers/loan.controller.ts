@@ -8,7 +8,8 @@ export class LoanController {
       const loan = await LoanService.createLoan(
         req.body,
         req.user!.id,
-        req.user!.branchId
+        req.user!.branchId,
+        req.user!.role
       );
 
       return ApiResponseUtil.success(

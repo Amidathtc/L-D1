@@ -30,7 +30,8 @@ export class LoanService {
   static async createLoan(
     data: CreateLoanData,
     createdByUserId: string,
-    userBranchId: string | null
+    userBranchId: string | null,
+    userRole: Role
   ) {
     // Validate customer
     const customer = await prisma.customer.findUnique({
@@ -95,6 +96,17 @@ export class LoanService {
       data.termUnit
     );
 
+    // Determine initial loan status based on user role
+    let initialStatus = LoanStatus.DRAFT;
+    if (userRole === Role.ADMIN) {
+      initialStatus = LoanStatus.APPROVED;
+    } else if (
+      userRole === Role.BRANCH_MANAGER ||
+      userRole === Role.CREDIT_OFFICER
+    ) {
+      initialStatus = LoanStatus.PENDING_APPROVAL;
+    }
+
     // Create loan
     const loan = await prisma.loan.create({
       data: {
@@ -109,7 +121,7 @@ export class LoanService {
         endDate,
         processingFeeAmount: new Decimal(data.processingFeeAmount),
         penaltyFeePerDayAmount: new Decimal(data.penaltyFeePerDayAmount),
-        status: LoanStatus.DRAFT,
+        status: initialStatus,
         createdByUserId,
         assignedOfficerId: customer.currentOfficerId || createdByUserId,
         notes: data.notes,
@@ -233,6 +245,8 @@ export class LoanService {
         return new Decimal(termCount).mul(7).div(365);
       case TermUnit.MONTH:
         return new Decimal(termCount).div(12);
+      default:
+        return new Decimal(termCount).div(365); // Default to daily
     }
   }
 
@@ -794,7 +808,8 @@ export class LoanService {
 
     // Only drafts and pending approvals can be deleted
     if (
-      loan.status !== LoanStatus.DRAFT && loan.status !== LoanStatus.PENDING_APPROVAL
+      loan.status !== LoanStatus.DRAFT &&
+      loan.status !== LoanStatus.PENDING_APPROVAL
     ) {
       throw new Error("Only draft or pending approval loans can be deleted");
     }
