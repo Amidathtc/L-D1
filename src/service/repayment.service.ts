@@ -668,8 +668,12 @@ export class RepaymentService {
       console.log(
         "Unknown user role or missing required data - restricting access"
       );
-      where.loan = {
-        id: "non-existent-id", // This will return no results
+      // Return empty results immediately without making a database query
+      return {
+        schedules: [],
+        total: 0,
+        page: filters.page,
+        limit: filters.limit,
       };
     }
 
@@ -753,18 +757,19 @@ export class RepaymentService {
                 },
               },
             },
-            allocations: {
-              include: {
-                repayment: {
-                  select: {
-                    id: true,
-                    amount: true,
-                    method: true,
-                    paidAt: true,
-                  },
-                },
-              },
-            },
+            // Temporarily remove allocations to debug the issue
+            // allocations: {
+            //   include: {
+            //     repayment: {
+            //       select: {
+            //         id: true,
+            //         amount: true,
+            //         method: true,
+            //         paidAt: true,
+            //       },
+            //     },
+            //   },
+            // },
           },
           skip,
           take: filters.limit,

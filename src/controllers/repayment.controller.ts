@@ -146,6 +146,15 @@ export class RepaymentController {
     next: NextFunction
   ) {
     try {
+      console.log("getRepaymentSchedules controller called");
+      console.log("Request user:", req.user);
+      console.log("Request query:", req.query);
+
+      if (!req.user) {
+        console.error("No user found in request");
+        return ApiResponseUtil.error(res, "Authentication required", 401);
+      }
+
       const filters = {
         page: req.query.page ? parseInt(req.query.page as string) : 1,
         limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
@@ -155,12 +164,26 @@ export class RepaymentController {
         dateTo: req.query.dateTo as string,
       };
 
+      console.log("Calling RepaymentService.getRepaymentSchedules with:", {
+        filters,
+        userRole: req.user.role,
+        userBranchId: req.user.branchId,
+        userId: req.user.id,
+      });
+
       const result = await RepaymentService.getRepaymentSchedules(
         filters,
-        req.user!.role as any,
-        req.user!.branchId || undefined,
-        req.user!.id
+        req.user.role as any,
+        req.user.branchId || undefined,
+        req.user.id
       );
+
+      console.log("Service returned result:", {
+        schedulesCount: result.schedules.length,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      });
 
       return ApiResponseUtil.paginated(
         res,
@@ -171,6 +194,9 @@ export class RepaymentController {
         "Repayment schedules retrieved successfully"
       );
     } catch (error: any) {
+      console.error("Error in getRepaymentSchedules controller:", error);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
       next(error);
     }
   }
