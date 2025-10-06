@@ -679,17 +679,71 @@ export class RepaymentService {
 
     console.log("Final where clause:", JSON.stringify(where, null, 2));
 
-    // For now, let's return empty results to test if the endpoint works
-    console.log("Returning empty results for testing...");
-    return {
-      schedules: [],
-      total: 0,
-      page: filters.page,
-      limit: filters.limit,
-    };
+    try {
+      console.log("Executing Prisma query for repayment schedules...");
 
-    // The complex query is temporarily disabled for debugging
-    // Will be re-enabled once the basic endpoint is working
+      const [schedules, total] = await Promise.all([
+        prisma.repaymentScheduleItem.findMany({
+          where,
+          include: {
+            loan: {
+              include: {
+                customer: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    code: true,
+                  },
+                },
+                branch: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                  },
+                },
+                loanType: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                assignedOfficer: {
+                  select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [{ dueDate: "asc" }, { sequence: "asc" }],
+          skip,
+          take: filters.limit,
+        }),
+        prisma.repaymentScheduleItem.count({ where }),
+      ]);
+
+      console.log(
+        `Found ${schedules.length} repayment schedules out of ${total} total`
+      );
+
+      return {
+        schedules,
+        total,
+        page: filters.page,
+        limit: filters.limit,
+      };
+    } catch (error: unknown) {
+      console.error("Error in Prisma query:", error);
+      if (error instanceof Error) {
+        throw new Error(`Database query failed: ${error.message}`);
+      } else {
+        throw new Error("Database query failed: Unknown error");
+      }
+    }
   }
 
   static async getRepaymentScheduleByLoan(
