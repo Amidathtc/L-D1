@@ -68,7 +68,13 @@ export class LoanService {
     const activeLoan = await prisma.loan.findFirst({
       where: {
         customerId: data.customerId,
-        status: { in: [LoanStatus.ACTIVE, LoanStatus.PENDING_APPROVAL, LoanStatus.APPROVED] },
+        status: {
+          in: [
+            LoanStatus.ACTIVE,
+            LoanStatus.PENDING_APPROVAL,
+            LoanStatus.APPROVED,
+          ],
+        },
         deletedAt: null,
       },
     });
@@ -170,13 +176,13 @@ export class LoanService {
     const endDate = new Date(startDate);
 
     switch (termUnit) {
-      case "DAY":
+      case TermUnit.DAY:
         endDate.setDate(endDate.getDate() + termCount);
         break;
-      case "WEEK":
+      case TermUnit.WEEK:
         endDate.setDate(endDate.getDate() + termCount * 7);
         break;
-      case "MONTH":
+      case TermUnit.MONTH:
         endDate.setMonth(endDate.getMonth() + termCount);
         break;
     }
@@ -208,13 +214,13 @@ export class LoanService {
       const dueDate = new Date(startDate);
 
       switch (termUnit) {
-        case "DAY":
+        case TermUnit.DAY:
           dueDate.setDate(dueDate.getDate() + i);
           break;
-        case "WEEK":
+        case TermUnit.WEEK:
           dueDate.setDate(dueDate.getDate() + i * 7);
           break;
-        case "MONTH":
+        case TermUnit.MONTH:
           dueDate.setMonth(dueDate.getMonth() + i);
           break;
       }
@@ -241,11 +247,11 @@ export class LoanService {
 
   static getYearFraction(termCount: number, termUnit: TermUnit): Decimal {
     switch (termUnit) {
-      case "DAY":
+      case TermUnit.DAY:
         return new Decimal(termCount).div(365);
-      case "WEEK":
+      case TermUnit.WEEK:
         return new Decimal(termCount).mul(7).div(365);
-      case "MONTH":
+      case TermUnit.MONTH:
         return new Decimal(termCount).div(12);
       default:
         return new Decimal(termCount).div(365); // Default to daily
@@ -639,7 +645,11 @@ export class LoanService {
       DRAFT: [LoanStatus.PENDING_APPROVAL, LoanStatus.CANCELED],
       PENDING_APPROVAL: [LoanStatus.APPROVED, LoanStatus.CANCELED],
       APPROVED: [LoanStatus.ACTIVE, LoanStatus.CANCELED],
-      ACTIVE: [LoanStatus.COMPLETED, LoanStatus.DEFAULTED, LoanStatus.WRITTEN_OFF],
+      ACTIVE: [
+        LoanStatus.COMPLETED,
+        LoanStatus.DEFAULTED,
+        LoanStatus.WRITTEN_OFF,
+      ],
       COMPLETED: [],
       DEFAULTED: [LoanStatus.WRITTEN_OFF, LoanStatus.ACTIVE],
       WRITTEN_OFF: [],
