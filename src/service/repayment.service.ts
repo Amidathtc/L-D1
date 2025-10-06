@@ -526,6 +526,16 @@ export class RepaymentService {
     userBranchId?: string,
     userId?: string
   ) {
+    console.log("getRepaymentSchedules called with filters:", filters);
+    console.log(
+      "User role:",
+      userRole,
+      "branchId:",
+      userBranchId,
+      "userId:",
+      userId
+    );
+
     const skip = (filters.page - 1) * filters.limit;
 
     const where: any = {
@@ -561,6 +571,8 @@ export class RepaymentService {
         assignedOfficerId: userId,
       };
     }
+
+    console.log("Final where clause:", JSON.stringify(where, null, 2));
 
     const [schedules, total] = await Promise.all([
       prisma.repaymentScheduleItem.findMany({
@@ -609,6 +621,12 @@ export class RepaymentService {
       }),
       prisma.repaymentScheduleItem.count({ where }),
     ]);
+
+    console.log("Query results:", {
+      schedulesFound: schedules.length,
+      totalCount: total,
+      firstSchedule: schedules[0] || null,
+    });
 
     return {
       schedules,

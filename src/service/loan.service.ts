@@ -156,14 +156,38 @@ export class LoanService {
     });
 
     // Generate repayment schedule
-    await this.generateRepaymentSchedule(
-      loan.id,
-      data.principalAmount,
-      data.termCount,
-      data.termUnit,
-      startDate,
-      data.interestRate || 0
-    );
+    try {
+      console.log("Generating repayment schedule for loan:", loan.id);
+      console.log("Loan data:", {
+        principalAmount: data.principalAmount,
+        termCount: data.termCount,
+        termUnit: data.termUnit,
+        startDate: startDate,
+        interestRate: data.interestRate || 0,
+      });
+
+      await this.generateRepaymentSchedule(
+        loan.id,
+        data.principalAmount,
+        data.termCount,
+        data.termUnit,
+        startDate,
+        data.interestRate || 0
+      );
+
+      console.log(
+        "Repayment schedule generated successfully for loan:",
+        loan.id
+      );
+    } catch (error) {
+      console.error(
+        "Failed to generate repayment schedule for loan:",
+        loan.id,
+        error
+      );
+      // Don't throw error to prevent loan creation from failing
+      // The repayment schedule can be generated later when the loan is approved
+    }
 
     return loan;
   }
@@ -198,6 +222,15 @@ export class LoanService {
     startDate: Date,
     interestRate: number
   ) {
+    console.log("generateRepaymentSchedule called with:", {
+      loanId,
+      principalAmount,
+      termCount,
+      termUnit,
+      startDate,
+      interestRate,
+    });
+
     const principal = new Decimal(principalAmount);
     const principalPerPayment = principal.div(termCount);
 
@@ -207,6 +240,14 @@ export class LoanService {
       .mul(annualRate)
       .mul(this.getYearFraction(termCount, termUnit));
     const interestPerPayment = totalInterest.div(termCount);
+
+    console.log("Calculated values:", {
+      principal: principal.toString(),
+      principalPerPayment: principalPerPayment.toString(),
+      annualRate: annualRate.toString(),
+      totalInterest: totalInterest.toString(),
+      interestPerPayment: interestPerPayment.toString(),
+    });
 
     const scheduleItems = [];
 
@@ -240,9 +281,23 @@ export class LoanService {
       });
     }
 
-    await prisma.repaymentScheduleItem.createMany({
+    console.log(
+      "Creating repayment schedule items:",
+      scheduleItems.length,
+      "items"
+    );
+    console.log("First few items:", scheduleItems.slice(0, 3));
+
+    const result = await prisma.repaymentScheduleItem.createMany({
       data: scheduleItems,
     });
+
+    console.log(
+      "Repayment schedule items created:",
+      result.count,
+      "items for loan:",
+      loanId
+    );
   }
 
   static getYearFraction(termCount: number, termUnit: TermUnit): Decimal {
@@ -642,7 +697,11 @@ export class LoanService {
     newStatus: LoanStatus
   ) {
     const validTransitions: Record<LoanStatus, LoanStatus[]> = {
-      DRAFT: [LoanStatus.PENDING_APPROVAL, LoanStatus.CANCELED],
+      DRAFT: [
+        LoanStatus.PENDING_APPROVAL,
+        LoanStatus.APPROVED,
+        LoanStatus.CANCELED,
+      ],
       PENDING_APPROVAL: [LoanStatus.APPROVED, LoanStatus.CANCELED],
       APPROVED: [LoanStatus.ACTIVE, LoanStatus.CANCELED],
       ACTIVE: [
