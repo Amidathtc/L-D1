@@ -70,7 +70,7 @@ export class BranchTransferService {
           effectiveDate: data.effectiveDate,
           createdByUserId: data.createdByUserId,
           notes: data.notes,
-          status: "pending",
+          status: "PENDING",
         },
         include: {
           user: {
@@ -126,7 +126,7 @@ export class BranchTransferService {
         throw new Error("Transfer not found");
       }
 
-      if (transfer.status !== "pending") {
+      if (transfer.status !== "PENDING") {
         throw new Error("Transfer is not pending");
       }
 
@@ -164,7 +164,7 @@ export class BranchTransferService {
         const updatedTransfer = await tx.branchTransfer.update({
           where: { id: transferId },
           data: {
-            status: "completed",
+            status: "COMPLETED",
             customersTransferred: customersTransferred.count,
             loansTransferred: loansTransferred.count,
             repaymentsTransferred: repaymentsTransferred.count,
@@ -368,14 +368,14 @@ export class BranchTransferService {
         throw new Error("Transfer not found");
       }
 
-      if (transfer.status !== "pending") {
+      if (transfer.status !== "PENDING") {
         throw new Error("Only pending transfers can be cancelled");
       }
 
       const updatedTransfer = await prisma.branchTransfer.update({
         where: { id: transferId },
         data: {
-          status: "cancelled",
+          status: "CANCELLED",
           notes: transfer.notes
             ? `${transfer.notes}\n[Cancelled by user ${cancelledByUserId}]`
             : `[Cancelled by user ${cancelledByUserId}]`,

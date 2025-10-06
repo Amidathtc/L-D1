@@ -556,7 +556,7 @@ model BranchTransfer {
   loansTransferred     Int @default(0)
   repaymentsTransferred Int @default(0)
   
-  status          String   @default("pending") // pending, completed, failed
+  status          String   @default("PENDING") // PENDING, COMPLETED, CANCELLED
   notes           String?
   
   createdAt       DateTime @default(now())
