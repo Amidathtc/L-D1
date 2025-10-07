@@ -172,6 +172,8 @@ export class LoanService {
           select: {
             id: true,
             email: true,
+            firstName: true,
+            lastName: true,
             role: true,
           },
         },
@@ -179,6 +181,8 @@ export class LoanService {
           select: {
             id: true,
             email: true,
+            firstName: true,
+            lastName: true,
             role: true,
           },
         },
@@ -478,6 +482,8 @@ export class LoanService {
           select: {
             id: true,
             email: true,
+            firstName: true,
+            lastName: true,
             role: true,
           },
         },
@@ -485,6 +491,8 @@ export class LoanService {
           select: {
             id: true,
             email: true,
+            firstName: true,
+            lastName: true,
             role: true,
           },
         },
@@ -650,6 +658,8 @@ export class LoanService {
           select: {
             id: true,
             email: true,
+            firstName: true,
+            lastName: true,
             role: true,
           },
         },
