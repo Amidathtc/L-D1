@@ -72,6 +72,14 @@ export const authenticate = async (
       branchId: user.branchId,
     };
 
+    console.log("Auth middleware: User authenticated:", {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      branchId: user.branchId,
+      isActive: user.isActive,
+    });
+
     next();
   } catch (error) {
     return ApiResponseUtil.error(res, "Invalid token", 401);

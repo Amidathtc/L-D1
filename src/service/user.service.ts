@@ -49,6 +49,13 @@ interface GetUsersFilters {
 
 export class UserService {
   static async createUser(data: CreateUserData, creatorRole: Role) {
+    console.log("UserService.createUser: Creating user with data:", {
+      email: data.email,
+      role: data.role,
+      branchId: data.branchId,
+      creatorRole: creatorRole,
+    });
+
     // Validate email doesn't exist
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
