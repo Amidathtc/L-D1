@@ -157,15 +157,9 @@ export class BranchTransferService {
           data: { branchId: transfer.toBranchId },
         });
 
-        // Transfer repayments
-        const repaymentsTransferred = await tx.repayment.updateMany({
-          where: {
-            loan: {
-              assignedOfficerId: transfer.userId,
-            },
-          },
-          data: { branchId: transfer.toBranchId },
-        });
+        // Note: Repayments don't have branchId field - they inherit branch from loan
+        // So we don't need to update repayments directly
+        const repaymentsTransferred = { count: 0 };
 
         // Update transfer status
         const updatedTransfer = await tx.branchTransfer.update({
