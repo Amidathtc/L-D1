@@ -122,6 +122,12 @@ export class CustomerService {
     const limit = filters.limit || 20;
     const skip = (page - 1) * limit;
 
+    console.log("CustomerService.getCustomers: Request from user:", {
+      userRole,
+      userBranchId,
+      filters,
+    });
+
     const where: any = {
       deletedAt: null,
     };
@@ -129,6 +135,14 @@ export class CustomerService {
     // Branch managers and credit officers can only see customers from their branch
     if (userRole !== Role.ADMIN && userBranchId) {
       where.branchId = userBranchId;
+      console.log(
+        "CustomerService.getCustomers: Non-admin user filtering by branchId:",
+        userBranchId
+      );
+    } else if (userRole === Role.ADMIN) {
+      console.log(
+        "CustomerService.getCustomers: ADMIN - no branch filtering applied"
+      );
     }
 
     if (filters.branchId) {

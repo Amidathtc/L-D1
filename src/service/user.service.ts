@@ -144,6 +144,12 @@ export class UserService {
     const limit = filters.limit || 20;
     const skip = (page - 1) * limit;
 
+    console.log("UserService.getUsers: Request from user:", {
+      userRole,
+      userBranchId,
+      filters,
+    });
+
     const where: any = {
       deletedAt: null,
     };
@@ -151,12 +157,23 @@ export class UserService {
     // Branch managers can only see users from their branch
     if (userRole === Role.BRANCH_MANAGER && userBranchId) {
       where.branchId = userBranchId;
+      console.log(
+        "UserService.getUsers: BRANCH_MANAGER filtering by branchId:",
+        userBranchId
+      );
     }
     // Credit officers can only see users from their branch
     else if (userRole === Role.CREDIT_OFFICER && userBranchId) {
       where.branchId = userBranchId;
+      console.log(
+        "UserService.getUsers: CREDIT_OFFICER filtering by branchId:",
+        userBranchId
+      );
     }
     // Admins can see all users
+    else if (userRole === Role.ADMIN) {
+      console.log("UserService.getUsers: ADMIN - no branch filtering applied");
+    }
 
     if (filters.role) {
       where.role = filters.role;
