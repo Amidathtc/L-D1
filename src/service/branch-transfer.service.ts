@@ -80,6 +80,13 @@ export class BranchTransferService {
               firstName: true,
               lastName: true,
               role: true,
+              branch: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                },
+              },
             },
           },
           fromBranch: {
