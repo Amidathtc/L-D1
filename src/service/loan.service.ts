@@ -74,13 +74,20 @@ export class LoanService {
         throw new Error("Assigned officer not found");
       }
 
-      if (assignedOfficer.role !== Role.CREDIT_OFFICER && assignedOfficer.role !== Role.BRANCH_MANAGER) {
-        throw new Error("Assigned officer must be a credit officer or branch manager");
+      if (
+        assignedOfficer.role !== Role.CREDIT_OFFICER &&
+        assignedOfficer.role !== Role.BRANCH_MANAGER
+      ) {
+        throw new Error(
+          "Assigned officer must be a credit officer or branch manager"
+        );
       }
 
       // Ensure assigned officer belongs to the same branch as the customer
       if (assignedOfficer.branchId !== customer.branchId) {
-        throw new Error("Assigned officer must belong to the same branch as the customer");
+        throw new Error(
+          "Assigned officer must belong to the same branch as the customer"
+        );
       }
     }
 
@@ -518,17 +525,28 @@ export class LoanService {
       throw new Error("Loan not found");
     }
 
-    // Permission check
-    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
-      throw new Error("You do not have permission to view this loan");
-    }
-
-    if (
-      userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      loan.branchId !== userBranchId
-    ) {
-      throw new Error("You do not have permission to view this loan");
+    // Permission check based on role
+    if (userRole === Role.ADMIN) {
+      // ADMIN can view all loans - no restrictions
+      console.log("ADMIN user - allowing access to loan:", id);
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER can only view loans they are assigned to
+      if (loan.assignedOfficerId !== userId) {
+        throw new Error("You do not have permission to view this loan");
+      }
+      console.log(
+        "CREDIT_OFFICER user - allowing access to assigned loan:",
+        id
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only view loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to view this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing access to loan in branch:",
+        userBranchId
+      );
     }
 
     return loan;
@@ -554,17 +572,28 @@ export class LoanService {
       throw new Error("Only draft loans can be updated");
     }
 
-    // Permission check
-    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
-      throw new Error("You do not have permission to update this loan");
-    }
-
-    if (
-      userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      loan.branchId !== userBranchId
-    ) {
-      throw new Error("You do not have permission to update this loan");
+    // Permission check based on role
+    if (userRole === Role.ADMIN) {
+      // ADMIN can update all loans - no restrictions
+      console.log("ADMIN user - allowing update to loan:", id);
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER can only update loans they are assigned to
+      if (loan.assignedOfficerId !== userId) {
+        throw new Error("You do not have permission to update this loan");
+      }
+      console.log(
+        "CREDIT_OFFICER user - allowing update to assigned loan:",
+        id
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only update loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to update this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing update to loan in branch:",
+        userBranchId
+      );
     }
 
     // Validate loan type if changing
@@ -666,19 +695,24 @@ export class LoanService {
       throw new Error("Loan not found");
     }
 
-    // Permission check
-    if (userRole === Role.CREDIT_OFFICER) {
+    // Permission check based on role
+    if (userRole === Role.ADMIN) {
+      // ADMIN can update status of all loans - no restrictions
+      console.log("ADMIN user - allowing status update of loan:", id);
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER cannot change loan status
       throw new Error(
         "Credit officers cannot change loan status. Contact your branch manager."
       );
-    }
-
-    if (
-      userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      loan.branchId !== userBranchId
-    ) {
-      throw new Error("You do not have permission to update this loan");
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only update status of loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to update this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing status update of loan in branch:",
+        userBranchId
+      );
     }
 
     // Validate status transitions
@@ -769,17 +803,22 @@ export class LoanService {
       throw new Error("Only approved loans can be disbursed");
     }
 
-    // Permission check
-    if (userRole === Role.CREDIT_OFFICER) {
+    // Permission check based on role
+    if (userRole === Role.ADMIN) {
+      // ADMIN can disburse all loans - no restrictions
+      console.log("ADMIN user - allowing disbursement of loan:", id);
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER cannot disburse loans
       throw new Error("Only branch managers and admins can disburse loans");
-    }
-
-    if (
-      userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      loan.branchId !== userBranchId
-    ) {
-      throw new Error("You do not have permission to disburse this loan");
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only disburse loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to disburse this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing disbursement of loan in branch:",
+        userBranchId
+      );
     }
 
     const updatedLoan = await prisma.loan.update({
@@ -819,17 +858,22 @@ export class LoanService {
       throw new Error("Loan not found");
     }
 
-    // Permission check
-    if (userRole === Role.CREDIT_OFFICER) {
+    // Permission check based on role
+    if (userRole === Role.ADMIN) {
+      // ADMIN can reassign all loans - no restrictions
+      console.log("ADMIN user - allowing reassignment of loan:", id);
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER cannot reassign loans
       throw new Error("Credit officers cannot reassign loans");
-    }
-
-    if (
-      userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      loan.branchId !== userBranchId
-    ) {
-      throw new Error("You do not have permission to reassign this loan");
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only reassign loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to reassign this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing reassignment of loan in branch:",
+        userBranchId
+      );
     }
 
     // Validate new officer
@@ -907,17 +951,28 @@ export class LoanService {
       throw new Error("Only draft or pending approval loans can be deleted");
     }
 
-    // Permission check
-    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
-      throw new Error("You do not have permission to delete this loan");
-    }
-
-    if (
-      userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      loan.branchId !== userBranchId
-    ) {
-      throw new Error("You do not have permission to delete this loan");
+    // Permission check based on role
+    if (userRole === Role.ADMIN) {
+      // ADMIN can delete all loans - no restrictions
+      console.log("ADMIN user - allowing delete of loan:", id);
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER can only delete loans they are assigned to
+      if (loan.assignedOfficerId !== userId) {
+        throw new Error("You do not have permission to delete this loan");
+      }
+      console.log(
+        "CREDIT_OFFICER user - allowing delete of assigned loan:",
+        id
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only delete loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to delete this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing delete of loan in branch:",
+        userBranchId
+      );
     }
 
     // Soft delete
