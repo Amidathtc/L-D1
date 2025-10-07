@@ -224,9 +224,7 @@ export class BranchTransferService {
       const limit = filters.limit || 10;
       const skip = (page - 1) * limit;
 
-      const where: any = {
-        deletedAt: null,
-      };
+      const where: any = {};
 
       if (filters.userId) {
         where.userId = filters.userId;
@@ -314,6 +312,13 @@ export class BranchTransferService {
         },
       };
     } catch (error: any) {
+      console.error("BranchTransferService.getTransfers error:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        meta: error.meta,
+        filters: filters,
+      });
       throw new Error(error.message || "Failed to fetch branch transfers");
     }
   }
