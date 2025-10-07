@@ -295,6 +295,8 @@ export class UserService {
   }
 
   static async updateUser(id: string, data: UpdateUserData, updaterId: string) {
+    console.log(`Updating user ${id} with data:`, data);
+
     const user = await prisma.user.findUnique({
       where: { id },
     });
@@ -302,6 +304,13 @@ export class UserService {
     if (!user || user.deletedAt) {
       throw new Error("User not found");
     }
+
+    console.log(`Current user data:`, {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      branchId: user.branchId,
+    });
 
     // Prevent users from deactivating themselves
     if (id === updaterId && data.isActive === false) {
@@ -342,6 +351,13 @@ export class UserService {
       }
     }
 
+    // If we're only updating branchId (not role), allow unassignment
+    // This allows users to be unassigned from branches temporarily
+    if (data.branchId === null && !data.role) {
+      // Allow unassignment - user can be reassigned later
+      console.log(`Allowing branch unassignment for user ${id}`);
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id },
       data: {
@@ -365,6 +381,14 @@ export class UserService {
         },
         updatedAt: true,
       },
+    });
+
+    console.log(`User updated successfully:`, {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      branchId: updatedUser.branchId,
+      branch: updatedUser.branch,
     });
 
     return updatedUser;
