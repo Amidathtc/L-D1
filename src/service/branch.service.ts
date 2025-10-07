@@ -185,6 +185,8 @@ export class BranchService {
   }
 
   static async updateBranch(id: string, data: UpdateBranchData) {
+    console.log(`Updating branch ${id} with data:`, data);
+
     const branch = await prisma.branch.findUnique({
       where: { id },
     });
@@ -192,6 +194,13 @@ export class BranchService {
     if (!branch || branch.deletedAt) {
       throw new Error("Branch not found");
     }
+
+    console.log(`Current branch data:`, {
+      id: branch.id,
+      name: branch.name,
+      code: branch.code,
+      managerId: branch.managerId,
+    });
 
     // Check code uniqueness if changing
     if (data.code && data.code !== branch.code) {
@@ -292,8 +301,17 @@ export class BranchService {
         },
       });
 
+      console.log(`Branch updated successfully:`, {
+        id: updatedBranch.id,
+        name: updatedBranch.name,
+        code: updatedBranch.code,
+        managerId: updatedBranch.managerId,
+        manager: updatedBranch.manager,
+      });
+
       return updatedBranch;
     } catch (error: any) {
+      console.error(`Error updating branch ${id}:`, error);
       if (error.code === "P2003") {
         throw new Error(
           `Foreign key constraint violation: The manager ID ${data.managerId} does not exist or is invalid`
