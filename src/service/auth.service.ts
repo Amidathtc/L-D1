@@ -75,21 +75,36 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string
   ) {
+    console.log("AuthService.login: Attempting login for email:", email);
+
     const user = await prisma.user.findUnique({
       where: { email },
       include: { branch: true },
     });
 
+    console.log("AuthService.login: User found:", {
+      id: user?.id,
+      email: user?.email,
+      role: user?.role,
+      isActive: user?.isActive,
+      deletedAt: user?.deletedAt,
+      branchId: user?.branchId,
+      branchActive: user?.branch?.isActive,
+    });
+
     if (!user || user.deletedAt) {
+      console.log("AuthService.login: User not found or deleted");
       throw new Error("Invalid credentials");
     }
 
     if (!user.isActive) {
+      console.log("AuthService.login: User account is inactive");
       throw new Error("Account is inactive");
     }
 
     // Check if user's branch is active (for non-admin users)
     if (user.branchId && user.branch && !user.branch.isActive) {
+      console.log("AuthService.login: User's branch is inactive");
       throw new Error("Branch is inactive. Please contact administrator.");
     }
 
@@ -98,7 +113,13 @@ export class AuthService {
       user.passwordHash
     );
 
+    console.log(
+      "AuthService.login: Password validation result:",
+      isPasswordValid
+    );
+
     if (!isPasswordValid) {
+      console.log("AuthService.login: Invalid password provided");
       // Track failed login attempt
       await UserActivityService.trackLogin(
         user.id,
@@ -110,6 +131,8 @@ export class AuthService {
       throw new Error("Invalid credentials");
     }
 
+    console.log("AuthService.login: Password valid, proceeding with login");
+
     // Track successful login
     await UserActivityService.trackLogin(user.id, ipAddress, userAgent, true);
 
@@ -120,13 +143,25 @@ export class AuthService {
       branchId: user.branchId,
     };
 
+    console.log(
+      "AuthService.login: Generating tokens with payload:",
+      tokenPayload
+    );
+
     const { token: accessToken, jwtId } =
       JwtUtil.generateAccessToken(tokenPayload);
     const refreshToken = JwtUtil.generateRefreshToken(tokenPayload);
 
+    console.log("AuthService.login: Tokens generated successfully");
+
     // Create session
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
+
+    console.log(
+      "AuthService.login: Creating session with expiresAt:",
+      expiresAt
+    );
 
     await prisma.staffSession.create({
       data: {
@@ -137,6 +172,8 @@ export class AuthService {
         expiresAt,
       },
     });
+
+    console.log("AuthService.login: Session created successfully");
 
     return {
       user: {

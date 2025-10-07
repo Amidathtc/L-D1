@@ -22,6 +22,8 @@ export class AuthController {
       const ipAddress = req.ip;
       const userAgent = req.get("user-agent");
 
+      console.log("AuthController.login: Login attempt for email:", email);
+
       const result = await AuthService.login(
         email,
         password,
@@ -29,8 +31,14 @@ export class AuthController {
         userAgent
       );
 
+      console.log(
+        "AuthController.login: Login successful for user:",
+        result.user.email
+      );
+
       return ApiResponseUtil.success(res, result, "Login successful");
     } catch (error: any) {
+      console.error("AuthController.login: Login error:", error.message);
       next(error);
     }
   }
