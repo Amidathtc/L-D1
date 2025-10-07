@@ -13,6 +13,7 @@ interface CreateLoanData {
   penaltyFeePerDayAmount: number;
   interestRate?: number;
   notes?: string;
+  assignedOfficerId?: string; // Add assigned officer ID
 }
 
 interface UpdateLoanData {
@@ -59,6 +60,27 @@ export class LoanService {
         throw new Error(
           `Principal amount must be between ${loanType.minAmount} and ${loanType.maxAmount}`
         );
+      }
+    }
+
+    // Validate assigned officer if provided
+    if (data.assignedOfficerId) {
+      const assignedOfficer = await prisma.user.findUnique({
+        where: { id: data.assignedOfficerId },
+        include: { branch: true },
+      });
+
+      if (!assignedOfficer || assignedOfficer.deletedAt) {
+        throw new Error("Assigned officer not found");
+      }
+
+      if (assignedOfficer.role !== Role.CREDIT_OFFICER && assignedOfficer.role !== Role.BRANCH_MANAGER) {
+        throw new Error("Assigned officer must be a credit officer or branch manager");
+      }
+
+      // Ensure assigned officer belongs to the same branch as the customer
+      if (assignedOfficer.branchId !== customer.branchId) {
+        throw new Error("Assigned officer must belong to the same branch as the customer");
       }
     }
 
@@ -129,7 +151,10 @@ export class LoanService {
         penaltyFeePerDayAmount: new Decimal(data.penaltyFeePerDayAmount),
         status: initialStatus,
         createdByUserId,
-        assignedOfficerId: customer.currentOfficerId || createdByUserId,
+        assignedOfficerId:
+          data.assignedOfficerId ||
+          customer.currentOfficerId ||
+          createdByUserId,
         notes: data.notes,
       },
       include: {
