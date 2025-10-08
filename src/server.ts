@@ -7,9 +7,32 @@ const PORT = config.port;
 
 async function startServer() {
   try {
-    // Test database connection
-    await prisma.$connect();
-    Logger.info("Database connected successfully");
+    // Test database connection with retry logic
+    let connected = false;
+    let retries = 3;
+
+    while (!connected && retries > 0) {
+      try {
+        await prisma.$connect();
+        Logger.info("Database connected successfully");
+        connected = true;
+      } catch (error) {
+        retries--;
+        Logger.error(
+          `Database connection failed. Retries left: ${retries}`,
+          error
+        );
+
+        if (retries === 0) {
+          throw new Error(
+            "Failed to connect to database after multiple attempts"
+          );
+        }
+
+        // Wait before retry
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+    }
 
     // Start server
     app.listen(PORT, () => {

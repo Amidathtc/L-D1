@@ -9,6 +9,7 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  relationMode = "prisma"
 }
 
 // ---------- Enums ----------
@@ -60,7 +61,7 @@ model Branch {
   code        String  @unique
   managerId   String? @unique
   isActive    Boolean @default(true)
-  manager     User?   @relation("BranchManager", fields: [managerId], references: [id])
+  manager     User?   @relation("BranchManager", fields: [managerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   users       User[]  @relation("UserBranch")
   customers   Customer[]
@@ -358,6 +359,11 @@ model LoanAssignmentHistory {
   changedAt      DateTime @default(now())
 
   @@index([loanId, changedAt])
+  @@index([oldOfficerId])
+  @@index([newOfficerId])
+  @@index([oldBranchId])
+  @@index([newBranchId])
+  @@index([changedByUserId])
 }
 
 model CustomerReassignment {
@@ -384,6 +390,11 @@ model CustomerReassignment {
   changedAt        DateTime @default(now())
 
   @@index([customerId, changedAt])
+  @@index([oldBranchId])
+  @@index([newBranchId])
+  @@index([oldOfficerId])
+  @@index([newOfficerId])
+  @@index([changedByUserId])
 }
 
 // ---------- Documents ----------
@@ -426,6 +437,7 @@ model CustomerDocument {
 
   @@index([customerId])
   @@index([documentTypeId])
+  @@index([uploadedByUserId])
 }
 
 model LoanDocument {
@@ -451,6 +463,7 @@ model LoanDocument {
 
   @@index([loanId])
   @@index([documentTypeId])
+  @@index([uploadedByUserId])
 }
 
 // ---------- Auth and audit ----------
@@ -470,6 +483,7 @@ model StaffSession {
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([jwtId])
 }
 
 model AuditLog {
@@ -492,6 +506,7 @@ model AuditLog {
 
   @@index([entityName, entityId])
   @@index([createdAt])
+  @@index([actorUserId])
 }
 
 // Enhanced features models
@@ -532,6 +547,7 @@ model UserNote {
   @@index([userId])
   @@index([category])
   @@index([createdAt])
+  @@index([createdByUserId])
 }
 
 model BranchTransfer {
@@ -567,6 +583,7 @@ model BranchTransfer {
   @@index([toBranchId])
   @@index([status])
   @@index([transferDate])
+  @@index([createdByUserId])
 }
 
 model BranchAnalytics {
