@@ -12,7 +12,6 @@
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "render-build": "npm install && npx prisma generate && npx prisma migrate deploy && npm run build",
-    "render-build-safe": "npm install && npx prisma generate && npx prisma migrate deploy --skip-generate && npm run build",
     "seed": "ts-node prisma/seed.ts"
   },
   "keywords": [],
