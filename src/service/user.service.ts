@@ -362,29 +362,59 @@ export class UserService {
       console.log(`Allowing branch unassignment for user ${id}`);
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: {
-        email: data.email,
-        role: data.role,
-        branchId: data.branchId,
-        isActive: data.isActive,
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        isActive: true,
-        branchId: true,
-        branch: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
+    // Check if user is being unassigned from a branch and is currently a manager
+    let managedBranch: { id: string; name: string; code: string } | null = null;
+    if (data.branchId === null && user.branchId) {
+      // User is being unassigned from a branch, check if they're managing it
+      managedBranch = await prisma.branch.findFirst({
+        where: {
+          managerId: id,
+          deletedAt: null,
         },
-        updatedAt: true,
-      },
+        select: { id: true, name: true, code: true },
+      });
+    }
+
+    // Use transaction to update user and unassign from branch management
+    const updatedUser = await prisma.$transaction(async (tx: any) => {
+      // Update the user
+      const user = await tx.user.update({
+        where: { id },
+        data: {
+          email: data.email,
+          role: data.role,
+          branchId: data.branchId,
+          isActive: data.isActive,
+        },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isActive: true,
+          branchId: true,
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+          updatedAt: true,
+        },
+      });
+
+      // If user was managing a branch, unassign them as manager
+      if (managedBranch) {
+        await tx.branch.update({
+          where: { id: managedBranch.id },
+          data: { managerId: null },
+        });
+        console.log(
+          `Unassigned user ${id} as manager from branch ${managedBranch.name} (${managedBranch.code})`
+        );
+      }
+
+      return user;
     });
 
     console.log(`User updated successfully:`, {
