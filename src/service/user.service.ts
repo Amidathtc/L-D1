@@ -201,6 +201,8 @@ export class UserService {
         select: {
           id: true,
           email: true,
+          firstName: true,
+          lastName: true,
           role: true,
           isActive: true,
           branchId: true,
@@ -230,6 +232,8 @@ export class UserService {
       select: {
         id: true,
         email: true,
+        firstName: true,
+        lastName: true,
         role: true,
         isActive: true,
         branchId: true,

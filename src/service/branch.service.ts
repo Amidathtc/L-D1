@@ -43,9 +43,13 @@ export class BranchService {
         throw new Error("Manager account is inactive");
       }
 
-      if (manager.role !== Role.BRANCH_MANAGER && manager.role !== Role.ADMIN) {
+      if (
+        manager.role !== Role.BRANCH_MANAGER &&
+        manager.role !== Role.CREDIT_OFFICER &&
+        manager.role !== Role.ADMIN
+      ) {
         throw new Error(
-          `User ${manager.email} must be a Branch Manager or Admin to manage a branch. Current role: ${manager.role}`
+          `User ${manager.email} must be a Branch Manager, Credit Officer, or Admin to manage a branch. Current role: ${manager.role}`
         );
       }
 
@@ -241,10 +245,11 @@ export class BranchService {
 
         if (
           manager.role !== Role.BRANCH_MANAGER &&
+          manager.role !== Role.CREDIT_OFFICER &&
           manager.role !== Role.ADMIN
         ) {
           throw new Error(
-            `User ${manager.email} must be a Branch Manager or Admin. Current role: ${manager.role}`
+            `User ${manager.email} must be a Branch Manager, Credit Officer, or Admin. Current role: ${manager.role}`
           );
         }
 

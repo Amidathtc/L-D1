@@ -288,6 +288,8 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        firstName: true,
+        lastName: true,
         role: true,
         isActive: true,
         branchId: true,
