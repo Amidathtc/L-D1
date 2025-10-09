@@ -27,7 +27,11 @@ export class DatabaseConnectionUtil {
   private static async testConnection(retries = 3): Promise<void> {
     for (let i = 0; i < retries; i++) {
       try {
-        await this.prisma!.$connect();
+        if (!this.prisma) {
+          throw new Error("Prisma client not initialized");
+        }
+        
+        await this.prisma.$connect();
         Logger.info("Database connection established successfully");
         return;
       } catch (error) {
@@ -56,6 +60,12 @@ export class DatabaseConnectionUtil {
       if (!this.prisma) {
         await this.getConnection();
       }
+      
+      // Add null check before using prisma
+      if (!this.prisma) {
+        return false;
+      }
+      
       await this.prisma.$queryRaw`SELECT 1`;
       return true;
     } catch (error) {

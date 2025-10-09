@@ -14,11 +14,6 @@ const prisma = new PrismaClient({
   },
 });
 
-// Add connection event handlers
-prisma.$on("beforeExit", async () => {
-  Logger.info("Prisma client is disconnecting...");
-});
-
 // Test connection on startup
 prisma
   .$connect()
@@ -28,5 +23,11 @@ prisma
   .catch((error) => {
     Logger.error("Failed to connect Prisma client:", error);
   });
+
+// Handle graceful shutdown
+process.on('beforeExit', async () => {
+  Logger.info("Prisma client is disconnecting...");
+  await prisma.$disconnect();
+});
 
 export default prisma;
