@@ -48,6 +48,19 @@ router.post(
 
 router.get("/loan/:loanId", DocumentController.getLoanDocuments);
 
+// Guarantor document routes
+router.post(
+  "/loan/:loanId/guarantor/:guarantorId",
+  upload.single("file"),
+  auditLog("GUARANTOR_DOCUMENT_UPLOADED", "LoanDocument"),
+  DocumentController.uploadGuarantorDocument
+);
+
+router.get(
+  "/loan/:loanId/guarantor/:guarantorId",
+  DocumentController.getGuarantorDocuments
+);
+
 router.put(
   "/:id/verify",
   requireBranchManager,

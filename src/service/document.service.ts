@@ -415,4 +415,87 @@ export class DocumentService {
       return document;
     }
   }
+
+  static async uploadGuarantorDocument(
+    loanId: string,
+    guarantorId: string,
+    documentTypeId: string,
+    fileUrl: string,
+    uploadedByUserId: string,
+    metadata?: {
+      issuingAuthority?: string;
+      issueDate?: Date;
+      expiryDate?: Date;
+    }
+  ) {
+    // Validate loan
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+    });
+
+    if (!loan || loan.deletedAt) {
+      throw new Error("Loan not found");
+    }
+
+    // Validate document type
+    const documentType = await prisma.documentType.findUnique({
+      where: { id: documentTypeId },
+    });
+
+    if (!documentType || documentType.deletedAt || !documentType.isActive) {
+      throw new Error("Document type not found or inactive");
+    }
+
+    // For now, we'll store guarantor documents as loan documents with a special identifier
+    // In a more complex system, you might have a separate GuarantorDocument model
+    const document = await prisma.loanDocument.create({
+      data: {
+        loanId,
+        documentTypeId,
+        fileUrl,
+        uploadedByUserId,
+        issuingAuthority: metadata?.issuingAuthority,
+        issueDate: metadata?.issueDate,
+        expiryDate: metadata?.expiryDate,
+        // Store guarantor ID in verification notes for now
+        verificationNotes: `GUARANTOR_ID:${guarantorId}`,
+      },
+      include: {
+        documentType: true,
+        loan: true,
+        uploadedBy: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return document;
+  }
+
+  static async getGuarantorDocuments(loanId: string, guarantorId: string) {
+    const documents = await prisma.loanDocument.findMany({
+      where: {
+        loanId,
+        verificationNotes: {
+          startsWith: `GUARANTOR_ID:${guarantorId}`,
+        },
+        deletedAt: null,
+      },
+      include: {
+        documentType: true,
+        uploadedBy: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { uploadedAt: "desc" },
+    });
+
+    return documents;
+  }
 }

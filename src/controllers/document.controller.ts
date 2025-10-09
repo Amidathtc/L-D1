@@ -332,4 +332,85 @@ export class DocumentController {
       next(error);
     }
   }
+
+  static async uploadGuarantorDocument(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.file) {
+        return ApiResponseUtil.error(res, "No file uploaded", 400);
+      }
+
+      const { loanId, guarantorId } = req.params;
+      const { documentTypeId, issuingAuthority, issueDate, expiryDate } =
+        req.body;
+
+      if (!loanId) {
+        return ApiResponseUtil.error(res, "Loan ID is required", 400);
+      }
+
+      if (!guarantorId) {
+        return ApiResponseUtil.error(res, "Guarantor ID is required", 400);
+      }
+
+      const fileUrl = req.file.path;
+
+      const metadata: {
+        issuingAuthority?: string;
+        issueDate?: Date;
+        expiryDate?: Date;
+      } = {};
+
+      if (issuingAuthority) metadata.issuingAuthority = issuingAuthority;
+      if (issueDate) metadata.issueDate = new Date(issueDate);
+      if (expiryDate) metadata.expiryDate = new Date(expiryDate);
+
+      const document = await DocumentService.uploadGuarantorDocument(
+        loanId,
+        guarantorId,
+        documentTypeId,
+        fileUrl,
+        req.user!.id,
+        metadata
+      );
+
+      return ApiResponseUtil.success(
+        res,
+        document,
+        "Guarantor document uploaded successfully",
+        201
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async getGuarantorDocuments(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { loanId, guarantorId } = req.params;
+
+      if (!loanId) {
+        return ApiResponseUtil.error(res, "Loan ID is required", 400);
+      }
+
+      if (!guarantorId) {
+        return ApiResponseUtil.error(res, "Guarantor ID is required", 400);
+      }
+
+      const documents = await DocumentService.getGuarantorDocuments(
+        loanId,
+        guarantorId
+      );
+
+      return ApiResponseUtil.success(res, documents);
+    } catch (error: any) {
+      next(error);
+    }
+  }
 }
