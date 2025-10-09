@@ -281,29 +281,60 @@ export class BranchService {
     }
 
     try {
-      const updatedBranch = await prisma.branch.update({
-        where: { id },
-        data: {
-          name: data.name,
-          code: data.code,
-          managerId: data.managerId || null, // Explicitly set to null if not provided
-        },
-        include: {
-          manager: {
-            select: {
-              id: true,
-              email: true,
-              role: true,
+      // Use transaction to update branch and user's branchId simultaneously
+      const updatedBranch = await prisma.$transaction(async (tx: any) => {
+        // Update the branch
+        const branch = await tx.branch.update({
+          where: { id },
+          data: {
+            name: data.name,
+            code: data.code,
+            managerId: data.managerId || null, // Explicitly set to null if not provided
+          },
+          include: {
+            manager: {
+              select: {
+                id: true,
+                email: true,
+                role: true,
+              },
+            },
+            _count: {
+              select: {
+                users: true,
+                customers: true,
+                loans: true,
+              },
             },
           },
-          _count: {
-            select: {
-              users: true,
-              customers: true,
-              loans: true,
-            },
-          },
-        },
+        });
+
+        // If assigning a manager, also update the user's branchId
+        if (data.managerId) {
+          await tx.user.update({
+            where: { id: data.managerId },
+            data: { branchId: id },
+          });
+          console.log(`Updated user ${data.managerId} branchId to ${id}`);
+        } else if (data.managerId === null) {
+          // If unassigning manager, find the current manager and unassign them
+          const currentBranch = await tx.branch.findUnique({
+            where: { id },
+            select: { managerId: true },
+          });
+
+          if (currentBranch?.managerId) {
+            await tx.user.update({
+              where: { id: currentBranch.managerId },
+              data: { branchId: null },
+            });
+            console.log(
+              `Unassigned user ${currentBranch.managerId} from branch ${id}`
+            );
+          }
+        }
+
+        return branch;
       });
 
       console.log(`Branch updated successfully:`, {
