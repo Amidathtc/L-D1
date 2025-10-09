@@ -76,6 +76,42 @@ async function main() {
 
   console.log("✅ Credit officer created:", creditOfficer.email);
 
+  // Create unassigned branch manager
+  const unassignedManagerPassword = await bcrypt.hash("unassigned123", 12);
+  const unassignedManager = await prisma.user.upsert({
+    where: { email: "unassigned.manager@millenniumpotters.com" },
+    update: {},
+    create: {
+      email: "unassigned.manager@millenniumpotters.com",
+      passwordHash: unassignedManagerPassword,
+      firstName: "Unassigned",
+      lastName: "Manager",
+      role: "BRANCH_MANAGER",
+      isActive: true,
+      branchId: null, // Not assigned to any branch
+    },
+  });
+
+  console.log("✅ Unassigned branch manager created:", unassignedManager.email);
+
+  // Create unassigned credit officer
+  const unassignedOfficerPassword = await bcrypt.hash("unassigned123", 12);
+  const unassignedOfficer = await prisma.user.upsert({
+    where: { email: "unassigned.officer@millenniumpotters.com" },
+    update: {},
+    create: {
+      email: "unassigned.officer@millenniumpotters.com",
+      passwordHash: unassignedOfficerPassword,
+      firstName: "Unassigned",
+      lastName: "Officer",
+      role: "CREDIT_OFFICER",
+      isActive: true,
+      branchId: null, // Not assigned to any branch
+    },
+  });
+
+  console.log("✅ Unassigned credit officer created:", unassignedOfficer.email);
+
   // Create default loan type
   const defaultLoanType = await prisma.loanType.upsert({
     where: { code: "LT001" },
@@ -150,6 +186,13 @@ async function main() {
   console.log("   Admin: admin@millenniumpotters.com / admin123");
   console.log("   Manager: manager@millenniumpotters.com / manager123");
   console.log("   Officer: officer@millenniumpotters.com / officer123");
+  console.log("\n👥 Unassigned users (available for branch assignment):");
+  console.log(
+    "   Unassigned Manager: unassigned.manager@millenniumpotters.com / unassigned123"
+  );
+  console.log(
+    "   Unassigned Officer: unassigned.officer@millenniumpotters.com / unassigned123"
+  );
 }
 
 main()
