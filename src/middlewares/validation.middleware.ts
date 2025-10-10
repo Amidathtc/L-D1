@@ -6,24 +6,34 @@ import { ApiResponseUtil } from "../utils/apiResponse.util";
 export const validate = (schema: z.ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
+      console.log("Validation middleware: Validating request body:", req.body);
+      console.log("Validation middleware: Request method:", req.method);
+      console.log("Validation middleware: Request URL:", req.url);
+
       schema.parse({
         body: req.body,
         query: req.query,
         params: req.params,
       });
+
+      console.log("Validation middleware: Validation passed");
       next();
     } catch (error: any) {
+      console.error("Validation middleware: Validation failed:", error);
+
       if (error instanceof z.ZodError) {
         const errorMessages = error.errors.map((err) => ({
           field: err.path.join("."),
           message: err.message,
         }));
 
+        console.error("Validation middleware: Zod errors:", errorMessages);
         return ApiResponseUtil.error(res, "Validation failed", 400, {
           errors: errorMessages,
         });
       }
 
+      console.error("Validation middleware: Non-Zod error:", error);
       return ApiResponseUtil.error(res, "Invalid request data", 400);
     }
   };

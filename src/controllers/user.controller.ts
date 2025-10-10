@@ -5,10 +5,18 @@ import { ApiResponseUtil } from "../utils/apiResponse.util";
 export class UserController {
   static async createUser(req: Request, res: Response, next: NextFunction) {
     try {
+      console.log("UserController.createUser: Request body:", req.body);
+      console.log("UserController.createUser: User role:", req.user!.role);
+
       const user = await UserService.createUser(req.body, req.user!.role);
 
+      console.log(
+        "UserController.createUser: User created successfully:",
+        user
+      );
       return ApiResponseUtil.success(res, user, "User created successfully");
     } catch (error: any) {
+      console.error("UserController.createUser: Error:", error);
       next(error);
     }
   }
