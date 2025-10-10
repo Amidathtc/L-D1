@@ -34,7 +34,8 @@ export class CustomerController {
       const result = await CustomerService.getCustomers(
         filters,
         req.user!.role,
-        req.user!.branchId || undefined
+        req.user!.branchId || undefined,
+        req.user!.id
       );
 
       return ApiResponseUtil.paginated(
@@ -65,7 +66,8 @@ export class CustomerController {
       const customer = await CustomerService.getCustomerById(
         id,
         req.user!.role,
-        req.user!.branchId || undefined
+        req.user!.branchId || undefined,
+        req.user!.id
       );
 
       return ApiResponseUtil.success(res, customer);
@@ -86,7 +88,8 @@ export class CustomerController {
         id,
         req.body,
         req.user!.role,
-        req.user!.branchId || undefined
+        req.user!.branchId || undefined,
+        req.user!.id
       );
 
       return ApiResponseUtil.success(
@@ -169,7 +172,8 @@ export class CustomerController {
       const loans = await CustomerService.getCustomerLoans(
         id,
         req.user!.role,
-        req.user!.branchId || undefined
+        req.user!.branchId || undefined,
+        req.user!.id
       );
 
       return ApiResponseUtil.success(res, loans);

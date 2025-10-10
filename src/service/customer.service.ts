@@ -116,7 +116,8 @@ export class CustomerService {
   static async getCustomers(
     filters: GetCustomersFilters,
     userRole: Role,
-    userBranchId?: string
+    userBranchId?: string,
+    userId?: string
   ) {
     const page = filters.page || 1;
     const limit = filters.limit || 20;
@@ -125,6 +126,7 @@ export class CustomerService {
     console.log("CustomerService.getCustomers: Request from user:", {
       userRole,
       userBranchId,
+      userId,
       filters,
     });
 
@@ -132,16 +134,22 @@ export class CustomerService {
       deletedAt: null,
     };
 
-    // Branch managers and credit officers can only see customers from their branch
-    if (userRole !== Role.ADMIN && userBranchId) {
+    // Role-based filtering
+    if (userRole === Role.ADMIN) {
+      console.log("CustomerService.getCustomers: ADMIN - no filtering applied");
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // Branch managers can see all customers from their branch
       where.branchId = userBranchId;
       console.log(
-        "CustomerService.getCustomers: Non-admin user filtering by branchId:",
+        "CustomerService.getCustomers: BRANCH_MANAGER filtering by branchId:",
         userBranchId
       );
-    } else if (userRole === Role.ADMIN) {
+    } else if (userRole === Role.CREDIT_OFFICER && userId) {
+      // Credit officers can only see customers assigned to them
+      where.currentOfficerId = userId;
       console.log(
-        "CustomerService.getCustomers: ADMIN - no branch filtering applied"
+        "CustomerService.getCustomers: CREDIT_OFFICER filtering by currentOfficerId:",
+        userId
       );
     }
 
@@ -201,7 +209,8 @@ export class CustomerService {
   static async getCustomerById(
     id: string,
     userRole: Role,
-    userBranchId?: string
+    userBranchId?: string,
+    userId?: string
   ) {
     const customer = await prisma.customer.findUnique({
       where: { id },
@@ -259,12 +268,29 @@ export class CustomerService {
       throw new Error("Customer not found");
     }
 
-    // Branch managers and credit officers can only view customers from their branch
-    if (
-      userRole !== Role.ADMIN &&
-      userBranchId &&
-      customer.branchId !== userBranchId
-    ) {
+    // Role-based access control
+    if (userRole === Role.ADMIN) {
+      // Admins can view any customer
+      console.log(
+        "CustomerService.getCustomerById: ADMIN - no access restrictions"
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // Branch managers can view customers from their branch
+      if (customer.branchId !== userBranchId) {
+        throw new Error("You do not have permission to view this customer");
+      }
+      console.log(
+        "CustomerService.getCustomerById: BRANCH_MANAGER - branch access granted"
+      );
+    } else if (userRole === Role.CREDIT_OFFICER && userId) {
+      // Credit officers can only view customers assigned to them
+      if (customer.currentOfficerId !== userId) {
+        throw new Error("You do not have permission to view this customer");
+      }
+      console.log(
+        "CustomerService.getCustomerById: CREDIT_OFFICER - assigned customer access granted"
+      );
+    } else {
       throw new Error("You do not have permission to view this customer");
     }
 
@@ -275,7 +301,8 @@ export class CustomerService {
     id: string,
     data: UpdateCustomerData,
     userRole: Role,
-    userBranchId?: string
+    userBranchId?: string,
+    userId?: string
   ) {
     const customer = await prisma.customer.findUnique({
       where: { id },
@@ -285,12 +312,29 @@ export class CustomerService {
       throw new Error("Customer not found");
     }
 
-    // Check permissions
-    if (
-      userRole !== Role.ADMIN &&
-      userBranchId &&
-      customer.branchId !== userBranchId
-    ) {
+    // Role-based access control for updates
+    if (userRole === Role.ADMIN) {
+      // Admins can update any customer
+      console.log(
+        "CustomerService.updateCustomer: ADMIN - no update restrictions"
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // Branch managers can update customers from their branch
+      if (customer.branchId !== userBranchId) {
+        throw new Error("You do not have permission to update this customer");
+      }
+      console.log(
+        "CustomerService.updateCustomer: BRANCH_MANAGER - branch update access granted"
+      );
+    } else if (userRole === Role.CREDIT_OFFICER && userId) {
+      // Credit officers can only update customers assigned to them
+      if (customer.currentOfficerId !== userId) {
+        throw new Error("You do not have permission to update this customer");
+      }
+      console.log(
+        "CustomerService.updateCustomer: CREDIT_OFFICER - assigned customer update access granted"
+      );
+    } else {
       throw new Error("You do not have permission to update this customer");
     }
 
@@ -488,7 +532,8 @@ export class CustomerService {
   static async getCustomerLoans(
     id: string,
     userRole: Role,
-    userBranchId?: string
+    userBranchId?: string,
+    userId?: string
   ) {
     const customer = await prisma.customer.findUnique({
       where: { id },
@@ -498,12 +543,36 @@ export class CustomerService {
       throw new Error("Customer not found");
     }
 
-    if (
-      userRole !== Role.ADMIN &&
-      userBranchId &&
-      customer.branchId !== userBranchId
-    ) {
-      throw new Error("You do not have permission to view this customer");
+    // Role-based access control for customer loans
+    if (userRole === Role.ADMIN) {
+      // Admins can view loans for any customer
+      console.log(
+        "CustomerService.getCustomerLoans: ADMIN - no access restrictions"
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // Branch managers can view loans for customers from their branch
+      if (customer.branchId !== userBranchId) {
+        throw new Error(
+          "You do not have permission to view this customer's loans"
+        );
+      }
+      console.log(
+        "CustomerService.getCustomerLoans: BRANCH_MANAGER - branch access granted"
+      );
+    } else if (userRole === Role.CREDIT_OFFICER && userId) {
+      // Credit officers can only view loans for customers assigned to them
+      if (customer.currentOfficerId !== userId) {
+        throw new Error(
+          "You do not have permission to view this customer's loans"
+        );
+      }
+      console.log(
+        "CustomerService.getCustomerLoans: CREDIT_OFFICER - assigned customer access granted"
+      );
+    } else {
+      throw new Error(
+        "You do not have permission to view this customer's loans"
+      );
     }
 
     const loans = await prisma.loan.findMany({
