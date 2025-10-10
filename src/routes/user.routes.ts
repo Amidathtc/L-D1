@@ -8,7 +8,11 @@ import {
   updateUserSchema,
   getUsersSchema,
 } from "../validators/user.validator";
-import { requireAdmin, requireStaff } from "../middlewares/role.middleware";
+import {
+  requireAdmin,
+  requireStaff,
+  requireAdminOrBranchManager,
+} from "../middlewares/role.middleware";
 
 const router = Router();
 
@@ -19,15 +23,13 @@ router.use(authenticate);
 router.route("/").get(validate(getUsersSchema), UserController.getUsers);
 router.route("/:id").get(UserController.getUserById);
 
-// Write operations - admin only
-router
-  .route("/")
-  .post(
-    requireAdmin,
-    validate(createUserSchema),
-    auditLog("USER_CREATED", "User"),
-    UserController.createUser
-  );
+// Write operations - admin and branch managers can create users
+router.route("/").post(
+  requireAdminOrBranchManager, // Allow admin and branch managers only
+  validate(createUserSchema),
+  auditLog("USER_CREATED", "User"),
+  UserController.createUser
+);
 
 router
   .route("/:id")

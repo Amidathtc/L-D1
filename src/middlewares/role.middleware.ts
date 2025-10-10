@@ -52,3 +52,8 @@ export const requireStaff = requireRole(
   Role.BRANCH_MANAGER,
   Role.CREDIT_OFFICER
 );
+
+export const requireAdminOrBranchManager = requireRole(
+  Role.ADMIN,
+  Role.BRANCH_MANAGER
+);
