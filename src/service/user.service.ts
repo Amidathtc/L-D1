@@ -9,8 +9,10 @@ interface CreateUserData {
   branchId?: string;
   firstName?: string;
   lastName?: string;
+  name?: string;
   phone?: string;
   address?: string;
+  isActive?: boolean;
 }
 
 interface UpdateUserData {
@@ -109,16 +111,27 @@ export class UserService {
 
     const passwordHash = await PasswordUtil.hash(data.password);
 
+    // Handle name field - split into firstName and lastName if provided
+    let firstName = data.firstName;
+    let lastName = data.lastName;
+
+    if (data.name && !firstName && !lastName) {
+      const nameParts = data.name.trim().split(" ");
+      firstName = nameParts[0] || "";
+      lastName = nameParts.slice(1).join(" ") || "";
+    }
+
     const user = await prisma.user.create({
       data: {
         email: data.email,
         passwordHash,
         role: data.role,
         branchId: data.branchId,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        firstName: firstName,
+        lastName: lastName,
         phone: data.phone,
         address: data.address,
+        isActive: data.isActive !== undefined ? data.isActive : true,
       },
       select: {
         id: true,

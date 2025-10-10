@@ -7,6 +7,12 @@ export const createUserSchema = z.object({
     password: z.string().min(8, "Password must be at least 8 characters"),
     role: z.nativeEnum(Role),
     branchId: z.string().optional(),
+    name: z.string().optional(),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    phone: z.string().optional(),
+    address: z.string().optional(),
+    isActive: z.boolean().optional(),
   }),
 });
 
