@@ -56,6 +56,15 @@ export class UserService {
       creatorRole: creatorRole,
     });
 
+    // Role-based permission validation
+    if (creatorRole === Role.BRANCH_MANAGER && data.role === Role.ADMIN) {
+      throw new Error("Branch managers cannot create admin users");
+    }
+
+    if (creatorRole === Role.CREDIT_OFFICER) {
+      throw new Error("Credit officers cannot create users");
+    }
+
     // Validate email doesn't exist
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
