@@ -4,6 +4,7 @@ import { authenticate } from "../middlewares/auth.middleware";
 import {
   requireBranchManager,
   requireRole,
+  requireStaff,
 } from "../middlewares/role.middleware";
 import { auditLog } from "../middlewares/audit.middleware";
 import { Role } from "@prisma/client";
@@ -13,7 +14,7 @@ const router = Router();
 router.use(authenticate);
 
 // Document types routes
-router.get("/types", DocumentController.getDocumentTypes);
+router.get("/types", requireStaff, DocumentController.getDocumentTypes);
 router.post(
   "/types",
   requireRole(Role.ADMIN),
@@ -32,28 +33,39 @@ router.delete(
 
 router.post(
   "/customer/:customerId",
+  requireStaff,
   upload.single("file"),
   auditLog("CUSTOMER_DOCUMENT_UPLOADED", "CustomerDocument"),
   DocumentController.uploadCustomerDocument
 );
 
-router.get("/customer/:customerId", DocumentController.getCustomerDocuments);
+router.get(
+  "/customer/:customerId",
+  requireStaff,
+  DocumentController.getCustomerDocuments
+);
 
 // Document serving route
-router.get("/serve/:documentId", DocumentController.serveDocument);
+router.get(
+  "/serve/:documentId",
+  requireStaff,
+  DocumentController.serveDocument
+);
 
 router.post(
   "/loan/:loanId",
+  requireStaff,
   upload.single("file"),
   auditLog("LOAN_DOCUMENT_UPLOADED", "LoanDocument"),
   DocumentController.uploadLoanDocument
 );
 
-router.get("/loan/:loanId", DocumentController.getLoanDocuments);
+router.get("/loan/:loanId", requireStaff, DocumentController.getLoanDocuments);
 
 // Guarantor document routes
 router.post(
   "/loan/:loanId/guarantor/:guarantorId",
+  requireStaff,
   upload.single("file"),
   auditLog("GUARANTOR_DOCUMENT_UPLOADED", "LoanDocument"),
   DocumentController.uploadGuarantorDocument
@@ -61,6 +73,7 @@ router.post(
 
 router.get(
   "/loan/:loanId/guarantor/:guarantorId",
+  requireStaff,
   DocumentController.getGuarantorDocuments
 );
 

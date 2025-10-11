@@ -15,6 +15,8 @@ export class AuditLogController {
         search: req.query.search as string,
         dateFrom: req.query.dateFrom as string,
         dateTo: req.query.dateTo as string,
+        userRole: req.user?.role,
+        userBranchId: req.user?.branchId,
       };
 
       const result = await AuditLogService.getAuditLogs(filters);

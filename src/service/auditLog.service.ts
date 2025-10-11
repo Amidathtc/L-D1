@@ -11,6 +11,8 @@ interface GetAuditLogsFilters {
   search?: string;
   dateFrom?: string;
   dateTo?: string;
+  userRole?: Role;
+  userBranchId?: string;
 }
 
 export class AuditLogService {
@@ -20,6 +22,31 @@ export class AuditLogService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
+
+    // Role-based filtering for audit logs
+    if (filters.userRole === Role.BRANCH_MANAGER && filters.userBranchId) {
+      // Branch managers can only see audit logs from their branch
+      where.actor = {
+        branchId: filters.userBranchId,
+      };
+      console.log(
+        "AuditLogService: Filtering by branch for BRANCH_MANAGER:",
+        filters.userBranchId
+      );
+    } else if (
+      filters.userRole === Role.CREDIT_OFFICER &&
+      filters.userBranchId
+    ) {
+      // Credit officers can only see audit logs from their branch
+      where.actor = {
+        branchId: filters.userBranchId,
+      };
+      console.log(
+        "AuditLogService: Filtering by branch for CREDIT_OFFICER:",
+        filters.userBranchId
+      );
+    }
+    // ADMIN can see all audit logs - no additional filtering
 
     if (filters.entityName) {
       where.entityName = filters.entityName;
