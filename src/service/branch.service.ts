@@ -172,6 +172,76 @@ export class BranchService {
             isActive: true,
           },
         },
+        customers: {
+          where: { deletedAt: null },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            address: true,
+            dateOfBirth: true,
+            gender: true,
+            occupation: true,
+            monthlyIncome: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+            currentOfficer: {
+              select: {
+                id: true,
+                email: true,
+                role: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+        loans: {
+          where: { deletedAt: null },
+          select: {
+            id: true,
+            principalAmount: true,
+            interestRate: true,
+            loanTerm: true,
+            status: true,
+            applicationDate: true,
+            approvalDate: true,
+            disbursementDate: true,
+            maturityDate: true,
+            createdAt: true,
+            updatedAt: true,
+            customer: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
+            loanType: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+              },
+            },
+            assignedOfficer: {
+              select: {
+                id: true,
+                email: true,
+                role: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
         _count: {
           select: {
             customers: true,
