@@ -64,8 +64,11 @@ export class RepaymentService {
       throw new Error("Loan not found");
     }
 
-    if (loan.status !== LoanStatus.ACTIVE) {
-      throw new Error("Can only make payments on active loans");
+    if (
+      loan.status !== LoanStatus.ACTIVE &&
+      loan.status !== LoanStatus.APPROVED
+    ) {
+      throw new Error("Can only make payments on active or approved loans");
     }
 
     const amount = new Decimal(data.amount);
