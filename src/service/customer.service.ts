@@ -7,6 +7,16 @@ interface CreateCustomerData {
   phone?: string;
   email?: string;
   address?: string;
+  dateOfBirth?: Date;
+  gender?: string;
+  maritalStatus?: string;
+  profession?: string;
+  company?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  zipCode?: string;
+  note?: string;
   branchId: string;
   currentOfficerId?: string;
 }
@@ -17,6 +27,16 @@ interface UpdateCustomerData {
   phone?: string;
   email?: string;
   address?: string;
+  dateOfBirth?: Date;
+  gender?: string;
+  maritalStatus?: string;
+  profession?: string;
+  company?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  zipCode?: string;
+  note?: string;
   branchId?: string;
   currentOfficerId?: string;
 }
