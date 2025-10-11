@@ -11,7 +11,9 @@ export const createCustomerSchema = z.object({
       .optional()
       .or(z.literal("")),
     address: z.string().optional(),
-    dateOfBirth: z.date().optional(),
+    dateOfBirth: z
+      .union([z.date(), z.string().transform((str) => new Date(str))])
+      .optional(),
     gender: z.string().optional(),
     maritalStatus: z.string().optional(),
     profession: z.string().optional(),
@@ -28,16 +30,20 @@ export const createCustomerSchema = z.object({
 
 export const updateCustomerSchema = z.object({
   body: z.object({
-    firstName: z.string().min(2).optional(),
-    lastName: z.string().min(2).optional(),
-    phone: z.string().min(1, "Phone number is required").optional(),
+    firstName: z.union([z.string().min(2), z.literal("")]).optional(),
+    lastName: z.union([z.string().min(2), z.literal("")]).optional(),
+    phone: z
+      .union([z.string().min(1, "Phone number is required"), z.literal("")])
+      .optional(),
     email: z
       .string()
       .email("Invalid email address")
       .optional()
       .or(z.literal("")),
     address: z.string().optional(),
-    dateOfBirth: z.date().optional(),
+    dateOfBirth: z
+      .union([z.date(), z.string().transform((str) => new Date(str))])
+      .optional(),
     gender: z.string().optional(),
     maritalStatus: z.string().optional(),
     profession: z.string().optional(),
