@@ -1,14 +1,8 @@
 import { PasswordUtil } from "../utils/password.util";
 import { JwtUtil } from "../utils/jwt.util";
 import { UserActivityService } from "./user-activity.service";
+import { Role } from "@prisma/client";
 import prisma from "../prismaClient";
-
-// Define Role enum locally to avoid import issues
-enum Role {
-  ADMIN = "ADMIN",
-  BRANCH_MANAGER = "BRANCH_MANAGER",
-  CREDIT_OFFICER = "CREDIT_OFFICER",
-}
 
 export class AuthService {
   static async register(email: string, password: string) {
