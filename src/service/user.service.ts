@@ -160,7 +160,8 @@ export class UserService {
   static async getUsers(
     filters: GetUsersFilters,
     userRole: Role,
-    userBranchId?: string
+    userBranchId?: string,
+    userId?: string
   ) {
     const page = filters.page || 1;
     const limit = filters.limit || 20;
@@ -169,6 +170,7 @@ export class UserService {
     console.log("UserService.getUsers: Request from user:", {
       userRole,
       userBranchId,
+      userId,
       filters,
     });
 
@@ -649,11 +651,42 @@ export class UserService {
     }
   }
 
-  static async exportUsers(filters: GetUsersFilters) {
+  static async exportUsers(
+    filters: GetUsersFilters,
+    userRole: Role,
+    userBranchId?: string,
+    userId?: string
+  ) {
     try {
+      console.log("UserService.exportUsers: Request from user:", {
+        userRole,
+        userBranchId,
+        userId,
+        filters,
+      });
+
       const where: any = {
         deletedAt: null,
       };
+
+      // Role-based filtering - same logic as getUsers
+      if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+        where.branchId = userBranchId;
+        console.log(
+          "UserService.exportUsers: BRANCH_MANAGER filtering by branchId:",
+          userBranchId
+        );
+      } else if (userRole === Role.CREDIT_OFFICER && userBranchId) {
+        where.branchId = userBranchId;
+        console.log(
+          "UserService.exportUsers: CREDIT_OFFICER filtering by branchId:",
+          userBranchId
+        );
+      } else if (userRole === Role.ADMIN) {
+        console.log(
+          "UserService.exportUsers: ADMIN - no branch filtering applied"
+        );
+      }
 
       if (filters.role) {
         where.role = filters.role;

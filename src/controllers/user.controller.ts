@@ -37,7 +37,8 @@ export class UserController {
       const users = await UserService.getUsers(
         filters,
         req.user!.role,
-        req.user!.branchId || undefined
+        req.user!.branchId || undefined,
+        req.user!.id
       );
 
       return ApiResponseUtil.success(
@@ -131,7 +132,12 @@ export class UserController {
 
   static async exportUsers(req: Request, res: Response, next: NextFunction) {
     try {
-      const users = await UserService.exportUsers(req.query);
+      const users = await UserService.exportUsers(
+        req.query,
+        req.user!.role,
+        req.user!.branchId || undefined,
+        req.user!.id
+      );
 
       return ApiResponseUtil.success(res, users, "Users exported successfully");
     } catch (error: any) {
