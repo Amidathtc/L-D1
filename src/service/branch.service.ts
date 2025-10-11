@@ -1,4 +1,3 @@
-import { Role } from "@prisma/client";
 import prisma from "../prismaClient";
 
 interface CreateBranchData {
@@ -44,9 +43,9 @@ export class BranchService {
       }
 
       if (
-        manager.role !== Role.BRANCH_MANAGER &&
-        manager.role !== Role.CREDIT_OFFICER &&
-        manager.role !== Role.ADMIN
+        manager.role !== "BRANCH_MANAGER" &&
+        manager.role !== "CREDIT_OFFICER" &&
+        manager.role !== "ADMIN"
       ) {
         throw new Error(
           `User ${manager.email} must be a Branch Manager, Credit Officer, or Admin to manage a branch. Current role: ${manager.role}`
@@ -176,16 +175,12 @@ export class BranchService {
           where: { deletedAt: null },
           select: {
             id: true,
+            code: true,
             firstName: true,
             lastName: true,
             email: true,
             phone: true,
             address: true,
-            dateOfBirth: true,
-            gender: true,
-            occupation: true,
-            monthlyIncome: true,
-            isActive: true,
             createdAt: true,
             updatedAt: true,
             currentOfficer: {
@@ -204,19 +199,26 @@ export class BranchService {
           where: { deletedAt: null },
           select: {
             id: true,
+            loanNumber: true,
             principalAmount: true,
-            interestRate: true,
-            loanTerm: true,
+            currencyCode: true,
+            termCount: true,
+            termUnit: true,
+            startDate: true,
+            endDate: true,
+            processingFeeAmount: true,
+            processingFeeCollected: true,
+            penaltyFeePerDayAmount: true,
             status: true,
-            applicationDate: true,
-            approvalDate: true,
-            disbursementDate: true,
-            maturityDate: true,
+            disbursedAt: true,
+            closedAt: true,
+            notes: true,
             createdAt: true,
             updatedAt: true,
             customer: {
               select: {
                 id: true,
+                code: true,
                 firstName: true,
                 lastName: true,
                 email: true,
@@ -228,9 +230,21 @@ export class BranchService {
                 id: true,
                 name: true,
                 description: true,
+                minAmount: true,
+                maxAmount: true,
+                termUnit: true,
+                minTerm: true,
+                maxTerm: true,
               },
             },
             assignedOfficer: {
+              select: {
+                id: true,
+                email: true,
+                role: true,
+              },
+            },
+            createdBy: {
               select: {
                 id: true,
                 email: true,
@@ -314,9 +328,9 @@ export class BranchService {
         }
 
         if (
-          manager.role !== Role.BRANCH_MANAGER &&
-          manager.role !== Role.CREDIT_OFFICER &&
-          manager.role !== Role.ADMIN
+          manager.role !== "BRANCH_MANAGER" &&
+          manager.role !== "CREDIT_OFFICER" &&
+          manager.role !== "ADMIN"
         ) {
           throw new Error(
             `User ${manager.email} must be a Branch Manager, Credit Officer, or Admin. Current role: ${manager.role}`
