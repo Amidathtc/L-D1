@@ -736,6 +736,11 @@ export class LoanService {
       updateData.notes = loan.notes ? `${loan.notes}\n\n${notes}` : notes;
     }
 
+    // Set processingFeeCollected to true when loan is approved
+    if (newStatus === LoanStatus.APPROVED) {
+      updateData.processingFeeCollected = true;
+    }
+
     if (
       newStatus === LoanStatus.COMPLETED ||
       newStatus === LoanStatus.WRITTEN_OFF ||

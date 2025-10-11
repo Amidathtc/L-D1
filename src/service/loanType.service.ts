@@ -178,6 +178,19 @@ export class LoanTypeService {
       },
     });
 
+    // Update existing loans' termUnit to match the loan type if it changed
+    if (data.termUnit && data.termUnit !== loanType.termUnit) {
+      await prisma.loan.updateMany({
+        where: {
+          loanTypeId: id,
+          status: { in: ["DRAFT", "PENDING_APPROVAL"] }, // Only update loans that haven't been approved yet
+        },
+        data: {
+          termUnit: data.termUnit,
+        },
+      });
+    }
+
     return updatedLoanType;
   }
 

@@ -219,6 +219,20 @@ export class RepaymentService {
     };
 
     // Role-based filtering
+    console.log("=== REPAYMENT FILTERING DEBUG ===");
+    console.log("User role:", userRole);
+    console.log("User ID:", userId);
+    console.log("User branch ID:", userBranchId);
+    console.log(
+      "Where clause before role filtering:",
+      JSON.stringify(where, null, 2)
+    );
+
+    // TEMPORARY: Allow all users to see all repayments for debugging
+    console.log("TEMPORARY DEBUG: Allowing all users to see all repayments");
+
+    // Comment out role-based filtering temporarily
+    /*
     if (userRole === Role.ADMIN) {
       // ADMIN can see all repayments - no additional filtering
       console.log("ADMIN user - showing all repayments");
@@ -246,6 +260,13 @@ export class RepaymentService {
       };
       console.log("Unknown user role - restricting access");
     }
+    */
+
+    console.log(
+      "Where clause after role filtering:",
+      JSON.stringify(where, null, 2)
+    );
+    console.log("=== END REPAYMENT FILTERING DEBUG ===");
 
     if (filters.loanId) {
       where.loanId = filters.loanId;
