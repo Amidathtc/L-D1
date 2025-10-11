@@ -39,6 +39,9 @@ router.post(
 
 router.get("/customer/:customerId", DocumentController.getCustomerDocuments);
 
+// Document serving route
+router.get("/serve/:documentId", DocumentController.serveDocument);
+
 router.post(
   "/loan/:loanId",
   upload.single("file"),

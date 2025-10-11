@@ -300,6 +300,46 @@ export class DocumentService {
     return documents;
   }
 
+  static async getDocumentById(documentId: string) {
+    const document = await prisma.customerDocument.findUnique({
+      where: {
+        id: documentId,
+        deletedAt: null,
+      },
+      include: {
+        documentType: true,
+        uploadedBy: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!document) {
+      // Try loan document
+      const loanDocument = await prisma.loanDocument.findUnique({
+        where: {
+          id: documentId,
+          deletedAt: null,
+        },
+        include: {
+          documentType: true,
+          uploadedBy: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+        },
+      });
+      return loanDocument;
+    }
+
+    return document;
+  }
+
   static async getLoanDocuments(loanId: string) {
     const loan = await prisma.loan.findUnique({
       where: { id: loanId },

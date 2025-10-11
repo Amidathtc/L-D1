@@ -413,4 +413,50 @@ export class DocumentController {
       next(error);
     }
   }
+
+  static async serveDocument(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { documentId } = req.params;
+
+      if (!documentId) {
+        return ApiResponseUtil.error(res, "Document ID is required", 400);
+      }
+
+      // Get document from database
+      const document = await DocumentService.getDocumentById(documentId);
+
+      if (!document) {
+        return ApiResponseUtil.error(res, "Document not found", 404);
+      }
+
+      // Check if file exists
+      const filePath = document.fileUrl;
+      if (!fs.existsSync(filePath)) {
+        return ApiResponseUtil.error(res, "File not found", 404);
+      }
+
+      // Set appropriate headers
+      const fileName = path.basename(filePath);
+      const ext = path.extname(fileName).toLowerCase();
+
+      let contentType = "application/octet-stream";
+      if (ext === ".pdf") contentType = "application/pdf";
+      else if (ext === ".jpg" || ext === ".jpeg") contentType = "image/jpeg";
+      else if (ext === ".png") contentType = "image/png";
+      else if (ext === ".gif") contentType = "image/gif";
+      else if (ext === ".doc") contentType = "application/msword";
+      else if (ext === ".docx")
+        contentType =
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+
+      // Stream the file
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+    } catch (error: any) {
+      next(error);
+    }
+  }
 }
