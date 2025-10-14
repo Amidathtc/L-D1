@@ -575,9 +575,12 @@ export class LoanService {
       throw new Error("Loan not found");
     }
 
-    // Only drafts can be updated
-    if (loan.status !== LoanStatus.DRAFT) {
-      throw new Error("Only draft loans can be updated");
+    // Only drafts and pending approval loans can be updated
+    if (
+      loan.status !== LoanStatus.DRAFT &&
+      loan.status !== LoanStatus.PENDING_APPROVAL
+    ) {
+      throw new Error("Only draft and pending approval loans can be updated");
     }
 
     // Permission check based on role
