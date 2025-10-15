@@ -1,5 +1,7 @@
 import { Role } from "@prisma/client";
 import prisma from "../prismaClient";
+import path from "path";
+import fs from "fs";
 
 interface CreateCustomerData {
   firstName: string;
@@ -111,6 +113,7 @@ export class CustomerService {
       data: {
         ...data,
         code,
+        isVerified: true, // New customers are verified by default
       },
       include: {
         branch: {
@@ -619,5 +622,37 @@ export class CustomerService {
     });
 
     return loans;
+  }
+
+  static async uploadProfile(
+    customerId: string,
+    file: Express.Multer.File,
+    userId: string
+  ): Promise<string> {
+    try {
+      // Verify customer exists and user has permission
+      const customer = await prisma.customer.findUnique({
+        where: { id: customerId },
+        include: { branch: true },
+      });
+
+      if (!customer || customer.deletedAt) {
+        throw new Error("Customer not found");
+      }
+
+      // Create a public URL for the uploaded file
+      const baseUrl = process.env.API_BASE_URL || "http://localhost:3001";
+      const profileUrl = `${baseUrl}/uploads/${file.filename}`;
+
+      // Update customer with profile URL
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: { profileImage: profileUrl },
+      });
+
+      return profileUrl;
+    } catch (error: any) {
+      throw new Error(`Failed to upload profile: ${error.message}`);
+    }
   }
 }

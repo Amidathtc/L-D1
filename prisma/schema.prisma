@@ -169,6 +169,8 @@ model Customer {
   country          String?
   zipCode          String?
   note             String?
+  profileImage     String?
+  isVerified       Boolean @default(true)
 
   branchId         String
   branch           Branch  @relation(fields: [branchId], references: [id])

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { CustomerService } from "../service/customer.service";
 import { ApiResponseUtil } from "../utils/apiResponse.util";
+import path from "path";
+import fs from "fs";
 
 export class CustomerController {
   static async createCustomer(req: Request, res: Response, next: NextFunction) {
@@ -177,6 +179,34 @@ export class CustomerController {
       );
 
       return ApiResponseUtil.success(res, loans);
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async uploadProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return ApiResponseUtil.error(res, "Customer ID is required", 400);
+      }
+
+      if (!req.file) {
+        return ApiResponseUtil.error(res, "No file uploaded", 400);
+      }
+
+      const profileUrl = await CustomerService.uploadProfile(
+        id,
+        req.file,
+        req.user!.id
+      );
+
+      return ApiResponseUtil.success(
+        res,
+        { profileUrl },
+        "Profile uploaded successfully"
+      );
     } catch (error: any) {
       next(error);
     }
