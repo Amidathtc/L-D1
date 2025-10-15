@@ -180,4 +180,24 @@ export class SettingsController {
       next(error);
     }
   }
+
+  // File Upload
+  static async uploadFile(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) {
+        return ApiResponseUtil.error(res, "No file uploaded", 400);
+      }
+
+      const { type } = req.body;
+      const fileUrl = await SettingsService.uploadFile(req.file, type);
+
+      return ApiResponseUtil.success(
+        res,
+        { url: fileUrl },
+        "File uploaded successfully"
+      );
+    } catch (error: any) {
+      next(error);
+    }
+  }
 }

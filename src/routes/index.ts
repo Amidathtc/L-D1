@@ -15,6 +15,8 @@ import notesRoutes from "./notes.routes";
 import branchAnalyticsRoutes from "./branch-analytics.routes";
 import assignmentHistoryRoutes from "./assignment-history.routes";
 import healthRoutes from "./health.routes";
+import path from "path";
+import express from "express";
 
 const router = Router();
 
@@ -29,6 +31,9 @@ router.get("/test", (req, res) => {
     availableRoutes: ["/auth", "/users", "/branches", "/customers", "/loans"],
   });
 });
+
+// Serve uploaded files
+router.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Mount routes
 router.use("/auth", authRoutes);

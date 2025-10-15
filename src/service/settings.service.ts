@@ -1,5 +1,7 @@
 import prisma from "../prismaClient";
 import bcrypt from "bcryptjs";
+import path from "path";
+import fs from "fs";
 // import nodemailer from "nodemailer";
 
 interface CompanySettings {
@@ -207,5 +209,21 @@ export class SettingsService {
     const updatedSettings = { ...currentSettings, ...data };
 
     return updatedSettings;
+  }
+
+  // File Upload
+  static async uploadFile(
+    file: Express.Multer.File,
+    type: string
+  ): Promise<string> {
+    try {
+      // Create a public URL for the uploaded file
+      const baseUrl = process.env.API_BASE_URL || "http://localhost:3001";
+      const fileUrl = `${baseUrl}/uploads/${file.filename}`;
+
+      return fileUrl;
+    } catch (error: any) {
+      throw new Error(`Failed to upload file: ${error.message}`);
+    }
   }
 }
