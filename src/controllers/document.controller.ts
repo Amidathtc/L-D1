@@ -432,10 +432,36 @@ export class DocumentController {
         return ApiResponseUtil.error(res, "Document not found", 404);
       }
 
-      // Check if file exists
-      const filePath = document.fileUrl;
+      // Check if file exists - try both relative and absolute paths
+      let filePath = document.fileUrl;
+
+      // Log for debugging
+      console.log(`Attempting to serve document: ${documentId}`);
+      console.log(`Stored path: ${filePath}`);
+      console.log(`File exists at stored path: ${fs.existsSync(filePath)}`);
+
       if (!fs.existsSync(filePath)) {
-        return ApiResponseUtil.error(res, "File not found", 404);
+        // Try with process.cwd() prefix if not already there
+        const absolutePath = path.isAbsolute(filePath)
+          ? filePath
+          : path.join(process.cwd(), filePath);
+        console.log(`Trying absolute path: ${absolutePath}`);
+        console.log(
+          `File exists at absolute path: ${fs.existsSync(absolutePath)}`
+        );
+
+        if (fs.existsSync(absolutePath)) {
+          filePath = absolutePath;
+        } else {
+          console.error(
+            `Document file not found - Document ID: ${documentId}, Original path: ${filePath}`
+          );
+          return ApiResponseUtil.error(
+            res,
+            "Document file not found. The file may have been deleted or the storage was cleared.",
+            404
+          );
+        }
       }
 
       // Set appropriate headers
@@ -457,6 +483,14 @@ export class DocumentController {
 
       // Stream the file
       const fileStream = fs.createReadStream(filePath);
+      fileStream.on("error", (error) => {
+        console.error(`Error reading file: ${error.message}`);
+        if (!res.headersSent) {
+          res
+            .status(500)
+            .json({ success: false, message: "Error reading file" });
+        }
+      });
       fileStream.pipe(res);
     } catch (error: any) {
       next(error);
