@@ -17,3 +17,7 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
+    disk:
+      name: document-storage
+      mountPath: /var/data
+      sizeGB: 10

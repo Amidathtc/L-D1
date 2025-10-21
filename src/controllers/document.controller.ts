@@ -8,9 +8,12 @@ import * as fs from "fs";
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
+    // Use persistent disk on Render (/var/data) or local uploads folder in development
+    const baseDir =
+      process.env.NODE_ENV === "production" ? "/var/data" : "uploads";
     const uploadDir = req.path.includes("customer")
-      ? "uploads/customer-documents"
-      : "uploads/loan-documents";
+      ? `${baseDir}/customer-documents`
+      : `${baseDir}/loan-documents`;
 
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
