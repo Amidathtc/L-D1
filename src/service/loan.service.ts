@@ -1086,17 +1086,20 @@ export class LoanService {
       throw new Error("Loan not found");
     }
 
-    const totalExpected = loan.scheduleItems.reduce(
-      (sum: Decimal, item: any) => sum.plus(item.totalDue),
-      new Decimal(0)
-    );
-
+    // Calculate total paid from all repayments
     const totalPaid = loan.repayments.reduce(
       (sum: Decimal, payment: any) => sum.plus(payment.amount),
       new Decimal(0)
     );
 
-    const totalOutstanding = totalExpected.minus(totalPaid);
+    // Total outstanding = Principal Amount - Total Paid
+    const totalOutstanding = new Decimal(loan.principalAmount).minus(totalPaid);
+
+    // Total expected = Principal + all interest and fees from schedule items
+    const totalExpected = loan.scheduleItems.reduce(
+      (sum: Decimal, item: any) => sum.plus(item.totalDue),
+      new Decimal(0)
+    );
 
     const overdueItems = loan.scheduleItems.filter(
       (item: any) => item.status === ScheduleStatus.OVERDUE
@@ -1117,8 +1120,8 @@ export class LoanService {
       totalOutstanding,
       overdueAmount,
       overdueCount: overdueItems.length,
-      completionPercentage: totalExpected.gt(0)
-        ? totalPaid.div(totalExpected).mul(100).toFixed(2)
+      completionPercentage: new Decimal(loan.principalAmount).gt(0)
+        ? totalPaid.div(new Decimal(loan.principalAmount)).mul(100).toFixed(2)
         : "0.00",
       status: loan.status,
     };
