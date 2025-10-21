@@ -1,51 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { DocumentService } from "../service/document.service";
 import { ApiResponseUtil } from "../utils/apiResponse.util";
-import multer from "multer";
+import { uploadDocument, handleDocumentUpload } from "../utils/upload.helper";
+import { CloudinaryService } from "../utils/cloudinary.service";
 import * as path from "path";
 import * as fs from "fs";
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Use persistent disk on Render (/var/data) or local uploads folder in development
-    const baseDir =
-      process.env.NODE_ENV === "production" ? "/var/data" : "uploads";
-    const uploadDir = req.path.includes("customer")
-      ? `${baseDir}/customer-documents`
-      : `${baseDir}/loan-documents`;
-
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-const fileFilter = (req: any, file: any, cb: any) => {
-  const allowedTypes = /jpeg|jpg|png|pdf|doc|docx/;
-  const extname = allowedTypes.test(
-    path.extname(file.originalname).toLowerCase()
-  );
-  const mimetype = allowedTypes.test(file.mimetype);
-
-  if (mimetype && extname) {
-    return cb(null, true);
-  } else {
-    cb(new Error("Only images, PDFs, and Word documents are allowed!"));
-  }
-};
-
-export const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter,
-});
+// Export the updated upload middleware
+export const upload = uploadDocument;
 
 export class DocumentController {
   static async getDocumentTypes(
@@ -161,13 +123,25 @@ export class DocumentController {
         return ApiResponseUtil.error(res, "Customer ID is required", 400);
       }
 
-      const fileUrl = req.file.path;
+      // Upload to Cloudinary or local storage
+      const uploadResult = await handleDocumentUpload(
+        req.file,
+        `documents/customers/${customerId}`
+      );
 
       const metadata: {
         issuingAuthority?: string;
         issueDate?: Date;
         expiryDate?: Date;
-      } = {};
+        provider?: "cloudinary" | "local";
+        publicId?: string;
+      } = {
+        provider: uploadResult.provider,
+      };
+
+      if (uploadResult.publicId) {
+        metadata.publicId = uploadResult.publicId;
+      }
 
       if (issuingAuthority) metadata.issuingAuthority = issuingAuthority;
       if (issueDate) metadata.issueDate = new Date(issueDate);
@@ -176,7 +150,7 @@ export class DocumentController {
       const document = await DocumentService.uploadCustomerDocument(
         customerId,
         documentTypeId,
-        fileUrl,
+        uploadResult.url,
         req.user!.id,
         metadata
       );
@@ -230,13 +204,25 @@ export class DocumentController {
         return ApiResponseUtil.error(res, "Loan ID is required", 400);
       }
 
-      const fileUrl = req.file.path;
+      // Upload to Cloudinary or local storage
+      const uploadResult = await handleDocumentUpload(
+        req.file,
+        `documents/loans/${loanId}`
+      );
 
       const metadata: {
         issuingAuthority?: string;
         issueDate?: Date;
         expiryDate?: Date;
-      } = {};
+        provider?: "cloudinary" | "local";
+        publicId?: string;
+      } = {
+        provider: uploadResult.provider,
+      };
+
+      if (uploadResult.publicId) {
+        metadata.publicId = uploadResult.publicId;
+      }
 
       if (issuingAuthority) metadata.issuingAuthority = issuingAuthority;
       if (issueDate) metadata.issueDate = new Date(issueDate);
@@ -245,7 +231,7 @@ export class DocumentController {
       const document = await DocumentService.uploadLoanDocument(
         loanId,
         documentTypeId,
-        fileUrl,
+        uploadResult.url,
         req.user!.id,
         metadata
       );
@@ -358,13 +344,25 @@ export class DocumentController {
         return ApiResponseUtil.error(res, "Guarantor ID is required", 400);
       }
 
-      const fileUrl = req.file.path;
+      // Upload to Cloudinary or local storage
+      const uploadResult = await handleDocumentUpload(
+        req.file,
+        `documents/guarantors/${loanId}/${guarantorId}`
+      );
 
       const metadata: {
         issuingAuthority?: string;
         issueDate?: Date;
         expiryDate?: Date;
-      } = {};
+        provider?: "cloudinary" | "local";
+        publicId?: string;
+      } = {
+        provider: uploadResult.provider,
+      };
+
+      if (uploadResult.publicId) {
+        metadata.publicId = uploadResult.publicId;
+      }
 
       if (issuingAuthority) metadata.issuingAuthority = issuingAuthority;
       if (issueDate) metadata.issueDate = new Date(issueDate);
@@ -374,7 +372,7 @@ export class DocumentController {
         loanId,
         guarantorId,
         documentTypeId,
-        fileUrl,
+        uploadResult.url,
         req.user!.id,
         metadata
       );
@@ -432,11 +430,28 @@ export class DocumentController {
         return ApiResponseUtil.error(res, "Document not found", 404);
       }
 
-      // Check if file exists - try both relative and absolute paths
-      let filePath = document.fileUrl;
+      const fileUrl = document.fileUrl;
+      console.log(`Serving document: ${documentId}, URL: ${fileUrl}`);
+
+      // Check if it's a Cloudinary URL
+      if (
+        fileUrl.includes("cloudinary.com") ||
+        fileUrl.startsWith("https://")
+      ) {
+        // For Cloudinary URLs, redirect to the secure URL
+        // The frontend can handle displaying it
+        return ApiResponseUtil.success(res, {
+          url: fileUrl,
+          type: "remote",
+          provider: "cloudinary",
+        });
+      }
+
+      // Local file serving
+      let filePath = fileUrl;
 
       // Log for debugging
-      console.log(`Attempting to serve document: ${documentId}`);
+      console.log(`Attempting to serve local document: ${documentId}`);
       console.log(`Stored path: ${filePath}`);
       console.log(`File exists at stored path: ${fs.existsSync(filePath)}`);
 
@@ -483,7 +498,7 @@ export class DocumentController {
 
       // Stream the file
       const fileStream = fs.createReadStream(filePath);
-      fileStream.on("error", (error) => {
+      fileStream.on("error", (error: any) => {
         console.error(`Error reading file: ${error.message}`);
         if (!res.headersSent) {
           res

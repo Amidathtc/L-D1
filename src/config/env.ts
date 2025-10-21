@@ -23,6 +23,7 @@ console.log("Environment Variables:", {
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? "SET" : "MISSING",
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN,
   CORS_ORIGIN: process.env.CORS_ORIGIN || "NOT_SET",
+  CLOUDINARY_ENABLED: process.env.CLOUDINARY_CLOUD_NAME ? "YES" : "NO",
 });
 
 export const config = {
@@ -45,5 +46,14 @@ export const config = {
   upload: {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE || "5242880", 10),
     uploadDir: process.env.UPLOAD_DIR || "uploads",
+  },
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+    enabled:
+      !!process.env.CLOUDINARY_CLOUD_NAME &&
+      !!process.env.CLOUDINARY_API_KEY &&
+      !!process.env.CLOUDINARY_API_SECRET,
   },
 };
