@@ -1089,25 +1089,44 @@ export class LoanService {
     // Debug logging
     console.log("=== getLoanSummary DEBUG ===");
     console.log("Loan ID:", id);
+    console.log("Schedule Items count:", loan.scheduleItems.length);
     console.log("Repayments count:", loan.repayments.length);
-    console.log("Repayments data:", JSON.stringify(loan.repayments, null, 2));
 
-    // Calculate total paid from all repayments
-    const totalPaid = loan.repayments.reduce((sum: Decimal, payment: any) => {
-      const amount = new Decimal(payment.amount);
-      console.log(
-        "Processing repayment - amount:",
-        payment.amount,
-        "as Decimal:",
-        amount.toString()
-      );
-      return sum.plus(amount);
-    }, new Decimal(0));
+    // Calculate total paid from schedule items (this is the source of truth for paid amounts)
+    // The paidAmount field on RepaymentScheduleItem gets updated when allocations are made
+    const totalPaidFromSchedule = loan.scheduleItems.reduce(
+      (sum: Decimal, item: any) => {
+        const paidAmount = new Decimal(item.paidAmount || 0);
+        console.log(
+          `Schedule Item ${
+            item.sequence
+          }: paidAmount = ${paidAmount.toString()}`
+        );
+        return sum.plus(paidAmount);
+      },
+      new Decimal(0)
+    );
 
-    console.log("Total paid calculated:", totalPaid.toString());
+    console.log(
+      "Total paid (from schedule items):",
+      totalPaidFromSchedule.toString()
+    );
+
+    // Also log repayments for verification
+    const repaymentTotal = loan.repayments.reduce(
+      (sum: Decimal, payment: any) =>
+        sum.plus(new Decimal(payment.amount || 0)),
+      new Decimal(0)
+    );
+    console.log(
+      "Total from repayments table (for verification):",
+      repaymentTotal.toString()
+    );
 
     // Total outstanding = Principal Amount - Total Paid
-    const totalOutstanding = new Decimal(loan.principalAmount).minus(totalPaid);
+    const totalOutstanding = new Decimal(loan.principalAmount).minus(
+      totalPaidFromSchedule
+    );
 
     // Total expected = Principal + all interest and fees from schedule items
     const totalExpected = loan.scheduleItems.reduce(
@@ -1125,19 +1144,22 @@ export class LoanService {
       new Decimal(0)
     );
 
-    // Convert Decimal values to strings for JSON serialization
+    // Convert Decimal values to numbers for JSON serialization
     const result = {
       loanId: loan.id,
       loanNumber: loan.loanNumber,
       principalAmount: parseFloat(new Decimal(loan.principalAmount).toString()),
       totalExpected: parseFloat(totalExpected.toString()),
-      totalPaid: parseFloat(totalPaid.toString()),
+      totalPaid: parseFloat(totalPaidFromSchedule.toString()),
       totalOutstanding: parseFloat(totalOutstanding.toString()),
       overdueAmount: parseFloat(overdueAmount.toString()),
       overdueCount: overdueItems.length,
       completionPercentage: new Decimal(loan.principalAmount).gt(0)
         ? parseFloat(
-            totalPaid.div(new Decimal(loan.principalAmount)).mul(100).toFixed(2)
+            totalPaidFromSchedule
+              .div(new Decimal(loan.principalAmount))
+              .mul(100)
+              .toFixed(2)
           )
         : 0,
       status: loan.status,
