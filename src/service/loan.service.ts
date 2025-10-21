@@ -1086,11 +1086,25 @@ export class LoanService {
       throw new Error("Loan not found");
     }
 
+    // Debug logging
+    console.log("=== getLoanSummary DEBUG ===");
+    console.log("Loan ID:", id);
+    console.log("Repayments count:", loan.repayments.length);
+    console.log("Repayments data:", JSON.stringify(loan.repayments, null, 2));
+
     // Calculate total paid from all repayments
-    const totalPaid = loan.repayments.reduce(
-      (sum: Decimal, payment: any) => sum.plus(payment.amount),
-      new Decimal(0)
-    );
+    const totalPaid = loan.repayments.reduce((sum: Decimal, payment: any) => {
+      const amount = new Decimal(payment.amount);
+      console.log(
+        "Processing repayment - amount:",
+        payment.amount,
+        "as Decimal:",
+        amount.toString()
+      );
+      return sum.plus(amount);
+    }, new Decimal(0));
+
+    console.log("Total paid calculated:", totalPaid.toString());
 
     // Total outstanding = Principal Amount - Total Paid
     const totalOutstanding = new Decimal(loan.principalAmount).minus(totalPaid);
@@ -1111,20 +1125,28 @@ export class LoanService {
       new Decimal(0)
     );
 
-    return {
+    // Convert Decimal values to strings for JSON serialization
+    const result = {
       loanId: loan.id,
       loanNumber: loan.loanNumber,
-      principalAmount: loan.principalAmount,
-      totalExpected,
-      totalPaid,
-      totalOutstanding,
-      overdueAmount,
+      principalAmount: parseFloat(new Decimal(loan.principalAmount).toString()),
+      totalExpected: parseFloat(totalExpected.toString()),
+      totalPaid: parseFloat(totalPaid.toString()),
+      totalOutstanding: parseFloat(totalOutstanding.toString()),
+      overdueAmount: parseFloat(overdueAmount.toString()),
       overdueCount: overdueItems.length,
       completionPercentage: new Decimal(loan.principalAmount).gt(0)
-        ? totalPaid.div(new Decimal(loan.principalAmount)).mul(100).toFixed(2)
-        : "0.00",
+        ? parseFloat(
+            totalPaid.div(new Decimal(loan.principalAmount)).mul(100).toFixed(2)
+          )
+        : 0,
       status: loan.status,
     };
+
+    console.log("=== getLoanSummary FINAL RESULT ===");
+    console.log("Final summary:", result);
+
+    return result;
   }
 
   static async generateMissingSchedules() {
