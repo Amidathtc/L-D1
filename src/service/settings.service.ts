@@ -1,14 +1,13 @@
 import prisma from "../prismaClient";
 import bcrypt from "bcryptjs";
-import path from "path";
-import fs from "fs";
 // import nodemailer from "nodemailer";
 
 interface CompanySettings {
+  id: string;
   name: string;
   email: string;
-  phone: string;
-  address: string;
+  phone: string | null;
+  address: string | null;
   currency: string;
   currencySymbol: string;
   dateFormat: string;
@@ -16,8 +15,27 @@ interface CompanySettings {
   timezone: string;
   invoicePrefix: string;
   expensePrefix: string;
-  logo?: string;
+  logo?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
+const COMPANY_SETTINGS_ID = "default";
+
+const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
+  id: COMPANY_SETTINGS_ID,
+  name: "Millennium Potters",
+  email: "info@millenniumpotters.com.ng",
+  phone: "+234 123 456 7890",
+  address: "123 Business Street, Lagos, Nigeria",
+  currency: "NGN",
+  currencySymbol: "₦",
+  dateFormat: "DD/MM/YYYY",
+  timeFormat: "24h",
+  timezone: "Africa/Lagos",
+  invoicePrefix: "INV-",
+  expensePrefix: "EXP-",
+  logo: null,
+};
 
 interface EmailSettings {
   smtpHost: string;
@@ -56,33 +74,114 @@ interface SystemSettings {
 export class SettingsService {
   // Company Settings
   static async getCompanySettings(): Promise<CompanySettings> {
-    // For now, return default settings. In a real app, these would be stored in database
-    return {
-      name: "Millennium Potters",
-      email: "info@millenniumpotters.com.ng",
-      phone: "+234 123 456 7890",
-      address: "123 Business Street, Lagos, Nigeria",
-      currency: "NGN",
-      currencySymbol: "₦",
-      dateFormat: "DD/MM/YYYY",
-      timeFormat: "24h",
-      timezone: "Africa/Lagos",
-      invoicePrefix: "INV-",
-      expensePrefix: "EXP-",
-    };
+    const existing = await prisma.companySetting.findUnique({
+      where: { id: COMPANY_SETTINGS_ID },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    const created = await prisma.companySetting.create({
+      data: {
+        id: DEFAULT_COMPANY_SETTINGS.id,
+        name: DEFAULT_COMPANY_SETTINGS.name,
+        email: DEFAULT_COMPANY_SETTINGS.email,
+        phone: DEFAULT_COMPANY_SETTINGS.phone,
+        address: DEFAULT_COMPANY_SETTINGS.address,
+        currency: DEFAULT_COMPANY_SETTINGS.currency,
+        currencySymbol: DEFAULT_COMPANY_SETTINGS.currencySymbol,
+        dateFormat: DEFAULT_COMPANY_SETTINGS.dateFormat,
+        timeFormat: DEFAULT_COMPANY_SETTINGS.timeFormat,
+        timezone: DEFAULT_COMPANY_SETTINGS.timezone,
+        invoicePrefix: DEFAULT_COMPANY_SETTINGS.invoicePrefix,
+        expensePrefix: DEFAULT_COMPANY_SETTINGS.expensePrefix,
+        logo: DEFAULT_COMPANY_SETTINGS.logo,
+      },
+    });
+
+    return created;
   }
 
   static async updateCompanySettings(
     data: Partial<CompanySettings>
   ): Promise<CompanySettings> {
-    // In a real app, this would update the database
-    const currentSettings = await this.getCompanySettings();
-    const updatedSettings = { ...currentSettings, ...data };
+    const sanitizeRequired = (value?: string) => {
+      if (value === undefined) return undefined;
+      const trimmed = value.trim();
+      if (!trimmed) {
+        throw new Error("Required fields cannot be empty");
+      }
+      return trimmed;
+    };
 
-    // Here you would save to database
-    // await prisma.settings.upsert({ ... });
+    const sanitizeOptional = (value?: string | null) => {
+      if (value === undefined) return undefined;
+      if (value === null) return null;
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    };
 
-    return updatedSettings;
+    const updatePayload: Partial<CompanySettings> = {};
+
+    if (data.name !== undefined) {
+      updatePayload.name = sanitizeRequired(data.name);
+    }
+
+    if (data.email !== undefined) {
+      updatePayload.email = sanitizeRequired(data.email);
+    }
+
+    if (data.currency !== undefined) {
+      updatePayload.currency = sanitizeRequired(data.currency);
+    }
+
+    if (data.currencySymbol !== undefined) {
+      updatePayload.currencySymbol = sanitizeRequired(data.currencySymbol);
+    }
+
+    if (data.dateFormat !== undefined) {
+      updatePayload.dateFormat = sanitizeRequired(data.dateFormat);
+    }
+
+    if (data.timeFormat !== undefined) {
+      updatePayload.timeFormat = sanitizeRequired(data.timeFormat);
+    }
+
+    if (data.timezone !== undefined) {
+      updatePayload.timezone = sanitizeRequired(data.timezone);
+    }
+
+    if (data.invoicePrefix !== undefined) {
+      updatePayload.invoicePrefix = sanitizeRequired(data.invoicePrefix);
+    }
+
+    if (data.expensePrefix !== undefined) {
+      updatePayload.expensePrefix = sanitizeRequired(data.expensePrefix);
+    }
+
+    if (data.phone !== undefined) {
+      updatePayload.phone = sanitizeOptional(data.phone);
+    }
+
+    if (data.address !== undefined) {
+      updatePayload.address = sanitizeOptional(data.address);
+    }
+
+    if (data.logo !== undefined) {
+      updatePayload.logo = data.logo?.trim() ? data.logo : null;
+    }
+
+    const updated = await prisma.companySetting.upsert({
+      where: { id: COMPANY_SETTINGS_ID },
+      create: {
+        ...DEFAULT_COMPANY_SETTINGS,
+        ...updatePayload,
+      },
+      update: updatePayload,
+    });
+
+    return updated;
   }
 
   // Email Settings

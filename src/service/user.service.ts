@@ -20,10 +20,11 @@ interface UpdateUserData {
   role?: Role;
   branchId?: string | null;
   isActive?: boolean;
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  address?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  profileImage?: string | null;
 }
 
 interface BulkUserOperation {
@@ -322,7 +323,12 @@ export class UserService {
     return user;
   }
 
-  static async updateUser(id: string, data: UpdateUserData, updaterId: string) {
+  static async updateUser(
+    id: string,
+    data: UpdateUserData,
+    updaterId: string,
+    updaterRole: Role
+  ) {
     console.log(`Updating user ${id} with data:`, data);
 
     const user = await prisma.user.findUnique({
@@ -340,79 +346,118 @@ export class UserService {
       branchId: user.branchId,
     });
 
-    // Prevent users from deactivating themselves
-    if (id === updaterId && data.isActive === false) {
+    const isSelfUpdate = id === updaterId;
+
+    if (updaterRole !== Role.ADMIN && !isSelfUpdate) {
+      throw new Error("You do not have permission to update this user");
+    }
+
+    if (isSelfUpdate && data.isActive === false) {
       throw new Error("You cannot deactivate your own account");
     }
 
-    // Validate email if changing
-    if (data.email && data.email !== user.email) {
-      const existingUser = await prisma.user.findUnique({
-        where: { email: data.email },
-      });
+    const sanitizeNullable = (value?: string | null) => {
+      if (value === undefined) return undefined;
+      if (value === null) return null;
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    };
 
-      if (existingUser) {
-        throw new Error("Email already exists");
-      }
+    const updatePayload: UpdateUserData = {};
+
+    if (data.firstName !== undefined) {
+      updatePayload.firstName = sanitizeNullable(data.firstName);
     }
 
-    // Validate branch assignment
-    if (data.branchId) {
-      // Validate that the branch exists and is active
-      const branch = await prisma.branch.findUnique({
-        where: { id: data.branchId },
-      });
-
-      if (!branch || branch.deletedAt || !branch.isActive) {
-        throw new Error("Invalid or inactive branch");
-      }
+    if (data.lastName !== undefined) {
+      updatePayload.lastName = sanitizeNullable(data.lastName);
     }
 
-    // Validate role and branch combination
-    if (data.role && data.role !== Role.ADMIN) {
-      // For non-admin roles, ensure they have a branch
-      const targetBranchId = data.branchId || user.branchId;
-      if (!targetBranchId) {
-        throw new Error(
-          "Branch Manager and Credit Officer must be assigned to a branch"
-        );
-      }
+    if (data.phone !== undefined) {
+      updatePayload.phone = sanitizeNullable(data.phone);
     }
 
-    // If we're only updating branchId (not role), allow unassignment
-    // This allows users to be unassigned from branches temporarily
-    if (data.branchId === null && !data.role) {
-      // Allow unassignment - user can be reassigned later
-      console.log(`Allowing branch unassignment for user ${id}`);
+    if (data.address !== undefined) {
+      updatePayload.address = sanitizeNullable(data.address);
     }
 
-    // Check if user is being unassigned from a branch and is currently a manager
+    if (data.profileImage !== undefined) {
+      updatePayload.profileImage = data.profileImage || null;
+    }
+
     let managedBranch: { id: string; name: string; code: string } | null = null;
-    if (data.branchId === null && user.branchId) {
-      // User is being unassigned from a branch, check if they're managing it
-      managedBranch = await prisma.branch.findFirst({
-        where: {
-          managerId: id,
-          deletedAt: null,
-        },
-        select: { id: true, name: true, code: true },
-      });
+
+    if (updaterRole === Role.ADMIN) {
+      if (data.email !== undefined) {
+        const targetEmail = data.email.toLowerCase();
+        if (targetEmail !== user.email) {
+          const existingUser = await prisma.user.findUnique({
+            where: { email: targetEmail },
+          });
+
+          if (existingUser) {
+            throw new Error("Email already exists");
+          }
+        }
+        updatePayload.email = targetEmail;
+      }
+
+      if (data.branchId !== undefined) {
+        if (data.branchId) {
+          const branch = await prisma.branch.findUnique({
+            where: { id: data.branchId },
+          });
+
+          if (!branch || branch.deletedAt || !branch.isActive) {
+            throw new Error("Invalid or inactive branch");
+          }
+        }
+
+        updatePayload.branchId = data.branchId;
+
+        if (data.branchId === null && user.branchId) {
+          managedBranch = await prisma.branch.findFirst({
+            where: {
+              managerId: id,
+              deletedAt: null,
+            },
+            select: { id: true, name: true, code: true },
+          });
+        }
+      }
+
+      if (data.role !== undefined) {
+        if (data.role !== Role.ADMIN) {
+          const targetBranchId =
+            data.branchId !== undefined ? data.branchId : user.branchId;
+
+          if (!targetBranchId) {
+            throw new Error(
+              "Branch Manager and Credit Officer must be assigned to a branch"
+            );
+          }
+        }
+
+        updatePayload.role = data.role;
+      }
+
+      if (data.isActive !== undefined) {
+        updatePayload.isActive = data.isActive;
+      }
     }
 
-    // Use transaction to update user and unassign from branch management
-    const updatedUser = await prisma.$transaction(async (tx: any) => {
-      // Update the user
-      const user = await tx.user.update({
+    if (Object.keys(updatePayload).length === 0) {
+      console.log("No updatable fields provided; returning current user data");
+      return prisma.user.findUniqueOrThrow({
         where: { id },
-        data: {
-          email: data.email,
-          role: data.role,
-          branchId: data.branchId,
-          isActive: data.isActive,
-        },
         select: {
           id: true,
           email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          address: true,
+          profileImage: true,
           role: true,
           isActive: true,
           branchId: true,
@@ -424,10 +469,38 @@ export class UserService {
             },
           },
           updatedAt: true,
+          createdAt: true,
+        },
+      });
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx: any) => {
+      const user = await tx.user.update({
+        where: { id },
+        data: updatePayload,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          address: true,
+          profileImage: true,
+          role: true,
+          isActive: true,
+          branchId: true,
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+          updatedAt: true,
+          createdAt: true,
         },
       });
 
-      // If user was managing a branch, unassign them as manager
       if (managedBranch) {
         await tx.branch.update({
           where: { id: managedBranch.id },

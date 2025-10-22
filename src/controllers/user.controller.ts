@@ -67,10 +67,107 @@ export class UserController {
 
   static async updateUser(req: Request, res: Response, next: NextFunction) {
     try {
+      const sanitizeString = (value: any) => {
+        if (value === undefined || value === null) {
+          return undefined;
+        }
+        if (typeof value !== "string") {
+          return value;
+        }
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : "";
+      };
+
+      const parseOptionalBoolean = (value: any): boolean | undefined => {
+        if (value === undefined || value === null) {
+          return undefined;
+        }
+        if (typeof value === "boolean") {
+          return value;
+        }
+        if (typeof value === "string") {
+          if (value.toLowerCase() === "true") return true;
+          if (value.toLowerCase() === "false") return false;
+        }
+        return undefined;
+      };
+
+      const normalizedBody: any = {};
+
+      if (req.body.firstName !== undefined) {
+        const firstName = sanitizeString(req.body.firstName);
+        if (firstName !== undefined) normalizedBody.firstName = firstName;
+      }
+
+      if (req.body.lastName !== undefined) {
+        const lastName = sanitizeString(req.body.lastName);
+        if (lastName !== undefined) normalizedBody.lastName = lastName;
+      }
+
+      if (req.body.phone !== undefined) {
+        const phone = sanitizeString(req.body.phone);
+        if (phone !== undefined) normalizedBody.phone = phone || null;
+      }
+
+      if (req.body.address !== undefined) {
+        const address = sanitizeString(req.body.address);
+        if (address !== undefined) normalizedBody.address = address || null;
+      }
+
+      if (req.body.email !== undefined) {
+        const emailValue = sanitizeString(req.body.email);
+        if (emailValue) normalizedBody.email = emailValue.toLowerCase();
+      }
+
+      if (req.body.role !== undefined) {
+        normalizedBody.role = req.body.role;
+      }
+
+      if (req.body.branchId !== undefined) {
+        const branchVal = req.body.branchId;
+        if (
+          branchVal === null ||
+          branchVal === "null" ||
+          branchVal === "" ||
+          branchVal === undefined
+        ) {
+          normalizedBody.branchId = null;
+        } else {
+          normalizedBody.branchId = branchVal;
+        }
+      }
+
+      if (req.body.isActive !== undefined) {
+        const boolVal = parseOptionalBoolean(req.body.isActive);
+        if (boolVal !== undefined) {
+          normalizedBody.isActive = boolVal;
+        }
+      }
+
+      if (req.body.removeProfileImage === "true") {
+        normalizedBody.profileImage = null;
+      }
+
+      if (
+        req.body.profileImage &&
+        typeof req.body.profileImage === "string" &&
+        req.body.profileImage.startsWith("http")
+      ) {
+        normalizedBody.profileImage = req.body.profileImage;
+      }
+
+      if (req.file) {
+        const configuredBase = process.env.API_BASE_URL?.replace(/\/$/, "");
+        const requestBase = `${req.protocol}://${req.get("host")}`;
+        const baseUrl = (configuredBase || requestBase).replace(/\/$/, "");
+        normalizedBody.profileImage = `${baseUrl}/uploads/profiles/${req.file.filename}`;
+      }
+
       const user = await UserService.updateUser(
         req.params.id!,
-        req.body,
-        req.user!.id
+        normalizedBody,
+        req.user!.id,
+        req.user!.role
       );
 
       return ApiResponseUtil.success(res, user, "User updated successfully");

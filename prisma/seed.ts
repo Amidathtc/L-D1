@@ -1,3 +1,4 @@
+import process from "node:process";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -31,14 +32,45 @@ async function main() {
     create: {
       name: "Head Office",
       code: "BR001",
-      address: "123 Main Street, Lagos",
-      phone: "+234-800-000-0000",
-      email: "headoffice@millenniumpotters.com",
       isActive: true,
     },
   });
 
   console.log("✅ Default branch created:", defaultBranch.name);
+
+  // Create default company settings
+  const companySettings = await prisma.companySetting.upsert({
+    where: { id: "default" },
+    update: {
+      name: "Millennium Potters",
+      email: "info@millenniumpotters.com.ng",
+      phone: "+234 123 456 7890",
+      address: "123 Business Street, Lagos, Nigeria",
+      currency: "NGN",
+      currencySymbol: "₦",
+      dateFormat: "DD/MM/YYYY",
+      timeFormat: "24h",
+      timezone: "Africa/Lagos",
+      invoicePrefix: "INV-",
+      expensePrefix: "EXP-",
+    },
+    create: {
+      id: "default",
+      name: "Millennium Potters",
+      email: "info@millenniumpotters.com.ng",
+      phone: "+234 123 456 7890",
+      address: "123 Business Street, Lagos, Nigeria",
+      currency: "NGN",
+      currencySymbol: "₦",
+      dateFormat: "DD/MM/YYYY",
+      timeFormat: "24h",
+      timezone: "Africa/Lagos",
+      invoicePrefix: "INV-",
+      expensePrefix: "EXP-",
+    },
+  });
+
+  console.log("✅ Company settings initialized:", companySettings.name);
 
   // Create a sample branch manager
   const branchManagerPassword = await bcrypt.hash("manager123", 12);
@@ -114,11 +146,10 @@ async function main() {
 
   // Create default loan type
   const defaultLoanType = await prisma.loanType.upsert({
-    where: { code: "LT001" },
+    where: { name: "Personal Loan" },
     update: {},
     create: {
       name: "Personal Loan",
-      code: "LT001",
       description: "Standard personal loan product",
       minAmount: 10000,
       maxAmount: 1000000,

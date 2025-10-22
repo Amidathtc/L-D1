@@ -20,8 +20,23 @@ export const updateUserSchema = z.object({
   body: z.object({
     email: z.string().email("Invalid email address").optional(),
     role: z.nativeEnum(Role).optional(),
-    branchId: z.string().nullable().optional(),
-    isActive: z.boolean().optional(),
+    branchId: z
+      .union([z.string(), z.null(), z.literal("null"), z.literal("")])
+      .optional(),
+    isActive: z
+      .union([
+        z.boolean(),
+        z.enum(["true", "false"], {
+          invalid_type_error: "Invalid boolean value",
+        }),
+      ])
+      .optional(),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    phone: z.string().optional(),
+    address: z.string().optional(),
+    profileImage: z.string().optional(),
+    removeProfileImage: z.enum(["true", "false"]).optional(),
   }),
   params: z.object({
     id: z.string(),

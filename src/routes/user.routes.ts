@@ -1,4 +1,7 @@
 import { Router } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { UserController } from "../controllers/user.controller";
 import { authenticate } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validation.middleware";
@@ -10,14 +13,42 @@ import {
 } from "../validators/user.validator";
 import {
   requireAdmin,
-  requireStaff,
   requireAdminOrBranchManager,
+  requireAdminOrSelf,
 } from "../middlewares/role.middleware";
 
 const router = Router();
 
 // All user routes require authentication
 router.use(authenticate);
+
+const profileStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const uploadDir = path.join(process.cwd(), "uploads", "profiles");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, `profile-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const profileUpload = multer({
+  storage: profileStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed"));
+    }
+  },
+});
 
 // Read operations - allow all staff (admin, branch manager, credit officer)
 router.route("/").get(validate(getUsersSchema), UserController.getUsers);
@@ -34,7 +65,8 @@ router.route("/").post(
 router
   .route("/:id")
   .put(
-    requireAdmin,
+    requireAdminOrSelf,
+    profileUpload.single("profileImage"),
     validate(updateUserSchema),
     auditLog("USER_UPDATED", "User"),
     UserController.updateUser

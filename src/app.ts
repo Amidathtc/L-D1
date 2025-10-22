@@ -119,6 +119,7 @@ app._router.stack.forEach((middleware: any) => {
 
 // Static files for uploads
 app.use("/uploads", express.static("uploads"));
+app.use("/api/uploads", express.static("uploads"));
 
 // Error handling
 app.use(notFoundHandler);
