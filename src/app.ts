@@ -117,36 +117,33 @@ app._router.stack.forEach((middleware: any) => {
   }
 });
 
-// Static files for uploads - with CORS headers
-app.use(
-  "/uploads",
-  (req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Cache-Control", "public, max-age=3600");
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
-    }
-    next();
-  },
-  express.static("uploads")
-);
+// Static files for uploads - with explicit CORS headers BEFORE static middleware
+const corsHeadersMiddleware = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+) => {
+  // Set CORS headers for all responses from static routes
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, Accept, Origin"
+  );
+  res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours for preflight cache
+  res.setHeader("Cache-Control", "public, max-age=3600"); // 1 hour cache for static files
 
-app.use(
-  "/api/uploads",
-  (req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Cache-Control", "public, max-age=3600");
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
-    }
-    next();
-  },
-  express.static("uploads")
-);
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
+  next();
+};
+
+// Apply CORS headers middleware to both static routes
+app.use("/uploads", corsHeadersMiddleware, express.static("uploads"));
+app.use("/api/uploads", corsHeadersMiddleware, express.static("uploads"));
 
 // Error handling
 app.use(notFoundHandler);
