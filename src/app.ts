@@ -117,9 +117,36 @@ app._router.stack.forEach((middleware: any) => {
   }
 });
 
-// Static files for uploads
-app.use("/uploads", express.static("uploads"));
-app.use("/api/uploads", express.static("uploads"));
+// Static files for uploads - with CORS headers
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Cache-Control", "public, max-age=3600");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  },
+  express.static("uploads")
+);
+
+app.use(
+  "/api/uploads",
+  (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Cache-Control", "public, max-age=3600");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  },
+  express.static("uploads")
+);
 
 // Error handling
 app.use(notFoundHandler);
