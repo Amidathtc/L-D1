@@ -2,6 +2,7 @@ import express, { type Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import path from "path";
 import { config } from "./config/env";
 import routes from "./routes/index";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
@@ -141,9 +142,16 @@ const corsHeadersMiddleware = (
   next();
 };
 
+// Determine the correct uploads directory path
+// When running from dist/, we need to go up one level: ../uploads
+// When running from src/, we need: uploads
+const uploadsPath = path.join(process.cwd(), "uploads");
+console.log(`📁 Static files path: ${uploadsPath}`);
+
 // Apply CORS headers middleware to both static routes
-app.use("/uploads", corsHeadersMiddleware, express.static("uploads"));
-app.use("/api/uploads", corsHeadersMiddleware, express.static("uploads"));
+// Both /uploads and /api/uploads point to the same uploads directory
+app.use("/uploads", corsHeadersMiddleware, express.static(uploadsPath));
+app.use("/api/uploads", corsHeadersMiddleware, express.static(uploadsPath));
 
 // Error handling
 app.use(notFoundHandler);

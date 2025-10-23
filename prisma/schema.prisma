@@ -355,13 +355,13 @@ model CompanySetting {
   email          String
   phone          String?
   address        String?
-  currency       String   @default("NGN")
-  currencySymbol String   @default("₦")
-  dateFormat     String   @default("DD/MM/YYYY")
-  timeFormat     String   @default("24h")
-  timezone       String   @default("Africa/Lagos")
-  invoicePrefix  String   @default("INV-")
-  expensePrefix  String   @default("EXP-")
+  currency       String?   @default("NGN")
+  currencySymbol String?   @default("₦")
+  dateFormat     String?   @default("DD/MM/YYYY")
+  timeFormat     String?   @default("24h")
+  timezone       String?   @default("Africa/Lagos")
+  invoicePrefix  String?   @default("INV-")
+  expensePrefix  String?   @default("EXP-")
   logo           String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
