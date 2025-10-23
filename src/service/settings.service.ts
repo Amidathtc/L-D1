@@ -8,13 +8,13 @@ interface CompanySettings {
   email: string;
   phone: string | null;
   address: string | null;
-  currency: string;
-  currencySymbol: string;
-  dateFormat: string;
-  timeFormat: string;
-  timezone: string;
-  invoicePrefix: string;
-  expensePrefix: string;
+  currency?: string | null;
+  currencySymbol?: string | null;
+  dateFormat?: string | null;
+  timeFormat?: string | null;
+  timezone?: string | null;
+  invoicePrefix?: string | null;
+  expensePrefix?: string | null;
   logo?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
@@ -82,22 +82,14 @@ export class SettingsService {
       return existing;
     }
 
+    const createData = Object.fromEntries(
+      Object.entries(DEFAULT_COMPANY_SETTINGS).filter(
+        ([, value]) => value !== null && value !== undefined
+      )
+    );
+
     const created = await prisma.companySetting.create({
-      data: {
-        id: DEFAULT_COMPANY_SETTINGS.id,
-        name: DEFAULT_COMPANY_SETTINGS.name,
-        email: DEFAULT_COMPANY_SETTINGS.email,
-        phone: DEFAULT_COMPANY_SETTINGS.phone,
-        address: DEFAULT_COMPANY_SETTINGS.address,
-        currency: DEFAULT_COMPANY_SETTINGS.currency,
-        currencySymbol: DEFAULT_COMPANY_SETTINGS.currencySymbol,
-        dateFormat: DEFAULT_COMPANY_SETTINGS.dateFormat,
-        timeFormat: DEFAULT_COMPANY_SETTINGS.timeFormat,
-        timezone: DEFAULT_COMPANY_SETTINGS.timezone,
-        invoicePrefix: DEFAULT_COMPANY_SETTINGS.invoicePrefix,
-        expensePrefix: DEFAULT_COMPANY_SETTINGS.expensePrefix,
-        logo: DEFAULT_COMPANY_SETTINGS.logo,
-      },
+      data: createData as any,
     });
 
     return created;
@@ -106,8 +98,9 @@ export class SettingsService {
   static async updateCompanySettings(
     data: Partial<CompanySettings>
   ): Promise<CompanySettings> {
-    const sanitizeRequired = (value?: string) => {
+    const sanitizeRequired = (value?: string | null): string | undefined => {
       if (value === undefined) return undefined;
+      if (value === null) return undefined;
       const trimmed = value.trim();
       if (!trimmed) {
         throw new Error("Required fields cannot be empty");
@@ -115,7 +108,9 @@ export class SettingsService {
       return trimmed;
     };
 
-    const sanitizeOptional = (value?: string | null) => {
+    const sanitizeOptional = (
+      value?: string | null
+    ): string | null | undefined => {
       if (value === undefined) return undefined;
       if (value === null) return null;
       const trimmed = value.trim();
@@ -172,13 +167,29 @@ export class SettingsService {
       updatePayload.logo = data.logo?.trim() ? data.logo : null;
     }
 
+    // Clean up updatePayload to remove null/undefined for Prisma compatibility
+    const cleanedUpdatePayload = Object.fromEntries(
+      Object.entries(updatePayload).filter(([, value]) => value !== undefined)
+    );
+
     const updated = await prisma.companySetting.upsert({
       where: { id: COMPANY_SETTINGS_ID },
       create: {
-        ...DEFAULT_COMPANY_SETTINGS,
-        ...updatePayload,
-      },
-      update: updatePayload,
+        id: COMPANY_SETTINGS_ID,
+        name: DEFAULT_COMPANY_SETTINGS.name,
+        email: DEFAULT_COMPANY_SETTINGS.email,
+        phone: DEFAULT_COMPANY_SETTINGS.phone,
+        address: DEFAULT_COMPANY_SETTINGS.address,
+        currency: DEFAULT_COMPANY_SETTINGS.currency,
+        currencySymbol: DEFAULT_COMPANY_SETTINGS.currencySymbol,
+        dateFormat: DEFAULT_COMPANY_SETTINGS.dateFormat,
+        timeFormat: DEFAULT_COMPANY_SETTINGS.timeFormat,
+        timezone: DEFAULT_COMPANY_SETTINGS.timezone,
+        invoicePrefix: DEFAULT_COMPANY_SETTINGS.invoicePrefix,
+        expensePrefix: DEFAULT_COMPANY_SETTINGS.expensePrefix,
+        ...cleanedUpdatePayload,
+      } as any,
+      update: cleanedUpdatePayload as any,
     });
 
     return updated;
@@ -319,6 +330,13 @@ export class SettingsService {
       // Create a public URL for the uploaded file
       const baseUrl = process.env.API_BASE_URL || "http://localhost:3001";
       const fileUrl = `${baseUrl}/uploads/${file.filename}`;
+
+      // Persist to database based on type
+      if (type === "logo") {
+        await prisma.companySetting.updateMany({
+          data: { logo: fileUrl },
+        });
+      }
 
       return fileUrl;
     } catch (error: any) {
