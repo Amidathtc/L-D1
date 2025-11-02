@@ -89,9 +89,21 @@ export class BranchService {
           },
           _count: {
             select: {
-              users: true,
-              customers: true,
-              loans: true,
+              users: {
+                where: {
+                  deletedAt: null,
+                },
+              },
+              customers: {
+                where: {
+                  deletedAt: null,
+                },
+              },
+              loans: {
+                where: {
+                  deletedAt: null,
+                },
+              },
             },
           },
         },
@@ -135,9 +147,21 @@ export class BranchService {
           },
           _count: {
             select: {
-              users: true,
-              customers: true,
-              loans: true,
+              users: {
+                where: {
+                  deletedAt: null,
+                },
+              },
+              customers: {
+                where: {
+                  deletedAt: null,
+                },
+              },
+              loans: {
+                where: {
+                  deletedAt: null,
+                },
+              },
             },
           },
         },
@@ -385,9 +409,21 @@ export class BranchService {
             },
             _count: {
               select: {
-                users: true,
-                customers: true,
-                loans: true,
+                users: {
+                  where: {
+                    deletedAt: null,
+                  },
+                },
+                customers: {
+                  where: {
+                    deletedAt: null,
+                  },
+                },
+                loans: {
+                  where: {
+                    deletedAt: null,
+                  },
+                },
               },
             },
           },
@@ -493,9 +529,21 @@ export class BranchService {
         },
         _count: {
           select: {
-            users: true,
-            customers: true,
-            loans: true,
+            users: {
+              where: {
+                deletedAt: null,
+              },
+            },
+            customers: {
+              where: {
+                deletedAt: null,
+              },
+            },
+            loans: {
+              where: {
+                deletedAt: null,
+              },
+            },
           },
         },
       },
