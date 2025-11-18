@@ -41,20 +41,15 @@ export class AssignmentHistoryService {
     const skip = (page - 1) * limit;
 
     try {
-      // Get loan assignment history
+      // Get union assignment history
       const assignmentWhere: any = {};
 
-      // Role-based filtering for loan assignments
+      // Role-based filtering for union assignments
       if (userRole === Role.SUPERVISOR && userBranchId) {
-        assignmentWhere.loan = {
-          unionId: userBranchId,
-          deletedAt: null,
-        };
+        assignmentWhere.unionId = userBranchId;
       } else if (userRole === Role.CREDIT_OFFICER) {
-        assignmentWhere.loan = {
-          OR: [{ assignedOfficerId: userId }, { createdByUserId: userId }],
-          deletedAt: null,
-        };
+        // Credit officers can see assignments for their unions
+        assignmentWhere.newOfficerId = userId;
       }
 
       // Date filtering
@@ -98,20 +93,17 @@ export class AssignmentHistoryService {
         prisma.unionAssignmentHistory.count({ where: assignmentWhere }),
       ]);
 
-      // Get customer reassignment history
+      // Get union member reassignment history
       const reassignmentWhere: any = {};
 
-      // Role-based filtering for customer assignments
+      // Role-based filtering for union member assignments
       if (userRole === Role.SUPERVISOR && userBranchId) {
-        reassignmentWhere.customer = {
-          branchId: userBranchId,
+        reassignmentWhere.newUnion = {
+          id: userBranchId,
           deletedAt: null,
         };
       } else if (userRole === Role.CREDIT_OFFICER) {
-        reassignmentWhere.customer = {
-          OR: [{ currentOfficerId: userId }],
-          deletedAt: null,
-        };
+        reassignmentWhere.newOfficerId = userId;
       }
 
       // Date filtering
@@ -172,25 +164,25 @@ export class AssignmentHistoryService {
           skip,
           take: limit,
         }),
-        prisma.unionMemberReassignment.count({ where: assignmentWhere }),
+        prisma.unionMemberReassignment.count({ where: reassignmentWhere }),
       ]);
 
-      // Get branch manager assignment history
+      // Get union history (with credit officer assignments)
       const branchHistoryWhere: any = {};
 
-      // Role-based filtering for branch assignments
+      // Role-based filtering for union assignments
       if (userRole === Role.SUPERVISOR && userBranchId) {
-        branchHistoryWhere.branchId = userBranchId;
+        branchHistoryWhere.id = userBranchId;
       }
 
       // Date filtering
       if (filters.dateFrom || filters.dateTo) {
-        branchHistoryWhere.changedAt = {};
+        branchHistoryWhere.updatedAt = {};
         if (filters.dateFrom) {
-          branchHistoryWhere.changedAt.gte = new Date(filters.dateFrom);
+          branchHistoryWhere.updatedAt.gte = new Date(filters.dateFrom);
         }
         if (filters.dateTo) {
-          branchHistoryWhere.changedAt.lte = new Date(filters.dateTo);
+          branchHistoryWhere.updatedAt.lte = new Date(filters.dateTo);
         }
       }
 
@@ -220,62 +212,58 @@ export class AssignmentHistoryService {
         }),
       ]);
 
-      // Transform loan history
+      // Transform union assignment history
       const transformedLoanHistory: AssignmentHistoryEntry[] = loanHistory.map(
         (entry: any) => ({
           id: entry.id,
           type: "USER_ASSIGNMENT" as const,
           userId: entry.newOfficerId,
-          oldBranchId: entry.oldBranchId || undefined,
-          newBranchId: entry.newBranchId || undefined,
           oldManagerId: entry.oldOfficerId || undefined,
           newManagerId: entry.newOfficerId,
           changedByUserId: entry.changedByUserId,
           reason: entry.reason || undefined,
           timestamp: entry.changedAt.toISOString(),
           userEmail: entry.newOfficer?.email,
-          oldBranchName: entry.oldBranch?.name,
-          newBranchName: entry.newBranch?.name,
           oldManagerEmail: entry.oldOfficer?.email,
           newManagerEmail: entry.newOfficer?.email,
           changedByEmail: entry.changedBy?.email,
         })
       );
 
-      // Transform customer history
+      // Transform union member reassignment history
       const transformedCustomerHistory: AssignmentHistoryEntry[] =
         customerHistory.map((entry: any) => ({
           id: entry.id,
           type: "USER_ASSIGNMENT" as const,
           userId: entry.newOfficerId,
-          oldBranchId: entry.oldBranchId || undefined,
-          newBranchId: entry.newBranchId || undefined,
+          oldBranchId: entry.oldUnionId || undefined,
+          newBranchId: entry.newUnionId || undefined,
           oldManagerId: entry.oldOfficerId || undefined,
-          newManagerId: entry.newOfficerId,
+          newManagerId: entry.newOfficerId || undefined,
           changedByUserId: entry.changedByUserId,
           reason: entry.reason || undefined,
           timestamp: entry.changedAt.toISOString(),
-          userEmail: entry.newOfficer?.email,
-          oldBranchName: entry.oldBranch?.name,
-          newBranchName: entry.newBranch?.name,
+          userEmail: entry.unionMember?.code,
+          oldBranchName: entry.oldUnion?.name,
+          newBranchName: entry.newUnion?.name,
           oldManagerEmail: entry.oldOfficer?.email,
           newManagerEmail: entry.newOfficer?.email,
           changedByEmail: entry.changedBy?.email,
         }));
 
-      // Transform branch history (manager assignments)
+      // Transform union history (credit officer assignments)
       const transformedBranchHistory: AssignmentHistoryEntry[] = branchHistory
-        .filter((branch: any) => branch.manager) // Only include branches with managers
-        .map((branch: any) => ({
-          id: branch.id,
+        .filter((union: any) => union.creditOfficer) // Only include unions with credit officers
+        .map((union: any) => ({
+          id: union.id,
           type: "MANAGER_ASSIGNMENT" as const,
-          branchId: branch.id,
-          newManagerId: branch.managerId || undefined,
-          changedByUserId: branch.managerId || "", // This is a limitation - we don't track who assigned the manager
-          timestamp: branch.updatedAt.toISOString(),
-          branchName: branch.name,
-          newManagerEmail: branch.manager?.email,
-          changedByEmail: branch.manager?.email, // This is a limitation
+          branchId: union.id,
+          newManagerId: union.creditOfficerId || undefined,
+          changedByUserId: union.creditOfficerId || "", // This is a limitation - we don't track who assigned the officer
+          timestamp: union.updatedAt.toISOString(),
+          branchName: union.name,
+          newManagerEmail: union.creditOfficer?.email,
+          changedByEmail: union.creditOfficer?.email, // This is a limitation
         }));
 
       // Combine and sort all history
