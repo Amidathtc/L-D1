@@ -39,23 +39,29 @@ export const requireRole = (...roles: Role[]) => {
 };
 
 export const requireAdmin = requireRole(Role.ADMIN);
-export const requireBranchManager = requireRole(
+export const requireSupervisor = requireRole(Role.ADMIN, Role.SUPERVISOR);
+export const requireAdminOrSupervisor = requireRole(
   Role.ADMIN,
-  Role.BRANCH_MANAGER
-);
-export const requireAdminOrManager = requireRole(
-  Role.ADMIN,
-  Role.BRANCH_MANAGER
+  Role.SUPERVISOR
 );
 export const requireStaff = requireRole(
   Role.ADMIN,
-  Role.BRANCH_MANAGER,
+  Role.SUPERVISOR,
   Role.CREDIT_OFFICER
 );
 
+// Backward compatibility - BRANCH_MANAGER is now SUPERVISOR
+export const requireBranchManager = requireRole(
+  Role.ADMIN,
+  Role.SUPERVISOR
+);
+export const requireAdminOrManager = requireRole(
+  Role.ADMIN,
+  Role.SUPERVISOR
+);
 export const requireAdminOrBranchManager = requireRole(
   Role.ADMIN,
-  Role.BRANCH_MANAGER
+  Role.SUPERVISOR
 );
 
 export const requireAdminOrSelf = (

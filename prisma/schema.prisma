@@ -16,7 +16,7 @@ datasource db {
 
 enum Role {
   ADMIN
-  BRANCH_MANAGER
+  SUPERVISOR
   CREDIT_OFFICER
 }
 
@@ -55,138 +55,128 @@ enum RepaymentMethod {
 
 // ---------- Core ----------
 
-model Branch {
-  id          String  @id @default(cuid())
-  name        String
-  code        String  @unique
-  managerId   String? @unique
-  isActive    Boolean @default(true)
-  manager     User?   @relation("BranchManager", fields: [managerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+// [NEW] Union model as requested
+model Union {
+  id              String   @id @default(cuid())
+  name            String
+  location        String?
+  address         String?
+  creditOfficerId String // A Union has one Credit Officer
+  creditOfficer   User     @relation("OfficerUnions", fields: [creditOfficerId], references: [id])
 
-  users       User[]  @relation("UserBranch")
-  customers   Customer[]
-  loans       Loan[]
-  
+  unionMembers UnionMember[] // A Union has many members
+  loans        Loan[] // A Union has many loans
+
   // History relations
-  oldLoanBranches LoanAssignmentHistory[] @relation("OldLoanBranch")
-  newLoanBranches LoanAssignmentHistory[] @relation("NewLoanBranch")
-  oldCustomerBranches CustomerReassignment[] @relation("OldCustBranch")
-  newCustomerBranches CustomerReassignment[] @relation("NewCustBranch")
+  oldUnionAssignments UnionMemberReassignment[] @relation("OldUnion")
+  newUnionAssignments UnionMemberReassignment[] @relation("NewUnion")
 
-  // New relations for enhanced features
-  transferFrom BranchTransfer[] @relation("TransferFromBranch")
-  transferTo   BranchTransfer[] @relation("TransferToBranch")
-  analytics    BranchAnalytics[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   @@index([name])
-  @@index([code])
-  @@index([managerId])
-  @@index([isActive])
+  @@index([creditOfficerId])
   @@index([deletedAt])
 }
 
 model User {
-  id            String @id @default(cuid())
-  email         String @unique
-  passwordHash  String
-  role          Role
-  isActive      Boolean @default(true)
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean @default(true)
 
-  // Staff belong to a branch if BM or Credit Officer
-  branchId      String?
-  branch        Branch? @relation("UserBranch", fields: [branchId], references: [id])
+  // [NEW] Link for Credit Officer to their Supervisor
+  supervisorId String?
+  supervisor   User?   @relation("SupervisorToOfficers", fields: [supervisorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  creditOfficers User[]  @relation("SupervisorToOfficers") // A Supervisor has many Credit Officers
 
   // Profile fields
-  firstName     String?
-  lastName      String?
-  phone         String?
-  address       String?
-  profileImage  String?
-  
+  firstName    String?
+  lastName     String?
+  phone        String?
+  address      String?
+  profileImage String?
+
   // Activity tracking
-  lastLoginAt   DateTime?
+  lastLoginAt    DateTime?
   lastActivityAt DateTime?
-  loginCount    Int      @default(0)
+  loginCount     Int       @default(0)
 
   // Relationships
-  managedBranch Branch? @relation("BranchManager")
-  createdLoans  Loan[]        @relation("LoanCreatedBy")
-  assignedLoans Loan[]        @relation("LoanAssignedOfficer")
-  currentCustomers Customer[]  @relation("CurrentOfficer")
-  repayments    Repayment[]
-  sessions      StaffSession[]
-  auditLogs     AuditLog[]    @relation("ActorLogs")
-  uploadedCustDocs CustomerDocument[] @relation("CustDocUploadedBy")
-  uploadedLoanDocs LoanDocument[]     @relation("LoanDocUploadedBy")
-  
-  // History relations
-  oldLoanAssignments LoanAssignmentHistory[] @relation("OldOfficer")
-  newLoanAssignments LoanAssignmentHistory[] @relation("NewOfficer")
-  changedLoanAssignments LoanAssignmentHistory[] @relation("LoanAssignmentChanger")
-  oldCustomerAssignments CustomerReassignment[] @relation("OldCustOfficer")
-  newCustomerAssignments CustomerReassignment[] @relation("NewCustOfficer")
-  changedCustomerAssignments CustomerReassignment[] @relation("CustomerReassignmentChanger")
+  unions               Union[] @relation("OfficerUnions") // A Credit Officer manages many Unions
+  currentUnionMembers  UnionMember[] @relation("CurrentOfficer")
+  repayments           Repayment[]
+  sessions             StaffSession[]
+  auditLogs            AuditLog[] @relation("ActorLogs")
+  uploadedUnionMemberDocs UnionMemberDocument[] @relation("UnionMemberDocUploadedBy") // Renamed
+  uploadedLoanDocs     LoanDocument[] @relation("LoanDocUploadedBy")
+
+  // [NEW] History relations
+  oldUnionAssignments      UnionAssignmentHistory[] @relation("OldOfficer")
+  newUnionAssignments      UnionAssignmentHistory[] @relation("NewOfficer")
+  changedUnionAssignments  UnionAssignmentHistory[] @relation("UnionAssignmentChanger")
+  oldUnionMemberAssignments UnionMemberReassignment[] @relation("OldMemberOfficer")
+  newUnionMemberAssignments UnionMemberReassignment[] @relation("NewMemberOfficer")
+  changedUnionMemberAssignments UnionMemberReassignment[] @relation("UnionMemberReassignmentChanger")
 
   // New relations for enhanced features
-  loginHistory  UserLoginHistory[]
-  notes         UserNote[]
-  branchTransfers BranchTransfer[]
-  createdBranchTransfers BranchTransfer[] @relation("BranchTransferCreatedBy")
-  createdNotes  UserNote[] @relation("NoteCreatedBy")
+  loginHistory UserLoginHistory[]
+  notes        UserNote[]
+  createdNotes UserNote[] @relation("NoteCreatedBy")
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
+  // Removed branchId index
   @@index([email])
   @@index([role])
-  @@index([branchId])
   @@index([isActive])
   @@index([deletedAt])
   @@index([firstName, lastName])
   @@index([lastLoginAt])
+  @@index([supervisorId]) // Added index
 }
 
-model Customer {
-  id               String @id @default(cuid())
-  code             String? @unique
-  firstName        String
-  lastName         String
-  phone            String?
-  email            String?
-  address          String?
-  dateOfBirth      DateTime?
-  gender           String?
-  maritalStatus    String?
-  profession       String?
-  company          String?
-  city             String?
-  state            String?
-  country          String?
-  zipCode          String?
-  note             String?
-  profileImage     String?
-  isVerified       Boolean @default(true)
+// [RENAMED] Model renamed from Customer to UnionMember
+model UnionMember {
+  id             String    @id @default(cuid())
+  code           String?   @unique
+  firstName      String
+  lastName       String
+  phone          String?
+  email          String?
+  address        String?
+  dateOfBirth    DateTime?
+  gender         String?
+  maritalStatus  String?
+  profession     String?
+  company        String?
+  city           String?
+  state          String?
+  country        String?
+  zipCode        String?
+  note           String?
+  profileImage   String?
+  isVerified     Boolean   @default(true)
 
-  branchId         String
-  branch           Branch  @relation(fields: [branchId], references: [id])
+  // [NEW] Replaced branchId and currentOfficerId with unionId
+  unionId        String
+  union          Union     @relation(fields: [unionId], references: [id])
+  currentOfficer User?     @relation("CurrentOfficer", fields: [currentOfficerId], references: [id])
+  currentOfficerId String? // This is now redundant if we get officer via Union, but keeping as per old schema. Can be removed.
 
-  currentOfficerId String?
-  currentOfficer   User?   @relation("CurrentOfficer", fields: [currentOfficerId], references: [id])
+  documents              UnionMemberDocument[] // Renamed
+  loans                  Loan[]
+  unionMemberReassignments UnionMemberReassignment[] // Renamed
 
-  documents        CustomerDocument[]
-  loans            Loan[]
-  reassignments    CustomerReassignment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  deletedAt        DateTime?
-
-  @@index([branchId])
+  @@index([unionId]) // Replaced branchId
   @@index([currentOfficerId])
   @@index([firstName, lastName])
   @@index([email])
@@ -221,60 +211,52 @@ model LoanType {
 }
 
 model Loan {
-  id                         String      @id @default(cuid())
-  loanNumber                 String      @unique
-  customerId                 String
-  customer                   Customer    @relation(fields: [customerId], references: [id])
+  id            String   @id @default(cuid())
+  loanNumber    String   @unique
+  // [RENAMED] Relation changed from Customer to UnionMember
+  unionMemberId String
+  unionMember   UnionMember @relation(fields: [unionMemberId], references: [id])
 
-  branchId                   String
-  branch                     Branch      @relation(fields: [branchId], references: [id])
+  // [NEW] Added unionId
+  unionId       String
+  union         Union    @relation(fields: [unionId], references: [id])
 
-  loanTypeId                 String?
-  loanType                   LoanType?   @relation(fields: [loanTypeId], references: [id])
+  loanTypeId    String?
+  loanType      LoanType? @relation(fields: [loanTypeId], references: [id])
 
-  principalAmount            Decimal     @db.Decimal(14, 2)
-  currencyCode               String      @default("NGN")
+  principalAmount Decimal  @db.Decimal(14, 2)
+  currencyCode    String   @default("NGN")
 
-  termCount                  Int
-  termUnit                   TermUnit
+  termCount Int
+  termUnit  TermUnit
 
-  startDate                  DateTime
-  endDate                    DateTime?
-
+  startDate     DateTime
+  endDate       DateTime?
   // Fees set on loan creation
-  processingFeeAmount        Decimal     @db.Decimal(14, 2)
-  processingFeeCollected     Boolean     @default(false)
-  penaltyFeePerDayAmount     Decimal     @db.Decimal(14, 2)
+  processingFeeAmount    Decimal @db.Decimal(14, 2)
+  processingFeeCollected Boolean @default(false)
+  penaltyFeePerDayAmount Decimal @db.Decimal(14, 2)
 
-  status                     LoanStatus  @default(DRAFT)
+  status LoanStatus @default(DRAFT)
 
-  // Who created and who currently owns the loan operationally
-  createdByUserId            String
-  createdBy                  User        @relation("LoanCreatedBy", fields: [createdByUserId], references: [id])
+  // [REMOVED] createdByUserId and assignedOfficerId relations removed
+  disbursedAt DateTime?
+  closedAt    DateTime?
+  notes       String?
 
-  assignedOfficerId          String
-  assignedOfficer            User        @relation("LoanAssignedOfficer", fields: [assignedOfficerId], references: [id])
+  scheduleItems RepaymentScheduleItem[]
+  repayments    Repayment[]
+  documents     LoanDocument[]
 
-  disbursedAt                DateTime?
-  closedAt                   DateTime?
-  notes                      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
-  scheduleItems              RepaymentScheduleItem[]
-  repayments                 Repayment[]
-  documents                  LoanDocument[]
-  assignmentHistory          LoanAssignmentHistory[]
-
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-  deletedAt                  DateTime?
-
-  @@index([customerId])
-  @@index([branchId])
-  @@index([assignedOfficerId])
+  @@index([unionMemberId]) // Renamed from customerId
+  @@index([unionId]) // Added index
   @@index([status])
   @@index([loanNumber])
   @@index([loanTypeId])
-  @@index([createdByUserId])
   @@index([endDate])
   @@index([deletedAt])
 }
@@ -367,61 +349,50 @@ model CompanySetting {
   updatedAt      DateTime @updatedAt
 }
 
-model LoanAssignmentHistory {
-  id             String  @id @default(cuid())
-  loanId         String
-  loan           Loan    @relation(fields: [loanId], references: [id])
-
-  oldOfficerId   String?
-  newOfficerId   String
-  oldOfficer     User?   @relation("OldOfficer", fields: [oldOfficerId], references: [id])
-  newOfficer     User    @relation("NewOfficer", fields: [newOfficerId], references: [id])
-
-  oldBranchId    String?
-  newBranchId    String?
-  oldBranch      Branch? @relation("OldLoanBranch", fields: [oldBranchId], references: [id])
-  newBranch      Branch? @relation("NewLoanBranch", fields: [newBranchId], references: [id])
-
+// [NEW] Replaces LoanAssignmentHistory
+model UnionAssignmentHistory {
+  id              String   @id @default(cuid())
+  unionId         String   // The Union being moved
+  // No relation here to avoid cycles, just store the ID
+  oldOfficerId    String?
+  newOfficerId    String
+  oldOfficer      User?    @relation("OldOfficer", fields: [oldOfficerId], references: [id])
+  newOfficer      User     @relation("NewOfficer", fields: [newOfficerId], references: [id])
   changedByUserId String
-  changedBy       User   @relation("LoanAssignmentChanger", fields: [changedByUserId], references: [id])
+  changedBy       User     @relation("UnionAssignmentChanger", fields: [changedByUserId], references: [id])
+  reason          String?
+  changedAt       DateTime @default(now())
 
-  reason         String?
-  changedAt      DateTime @default(now())
-
-  @@index([loanId, changedAt])
+  @@index([unionId, changedAt])
   @@index([oldOfficerId])
   @@index([newOfficerId])
-  @@index([oldBranchId])
-  @@index([newBranchId])
   @@index([changedByUserId])
 }
 
-model CustomerReassignment {
-  id               String  @id @default(cuid())
-  customerId       String
-  customer         Customer @relation(fields: [customerId], references: [id])
+// [NEW] Replaces CustomerReassignment
+model UnionMemberReassignment {
+  id              String   @id @default(cuid())
+  unionMemberId   String
+  unionMember     UnionMember @relation(fields: [unionMemberId], references: [id])
+  oldUnionId      String?
+  newUnionId      String
+  oldUnion        Union?   @relation("OldUnion", fields: [oldUnionId], references: [id])
+  newUnion        Union    @relation("NewUnion", fields: [newUnionId], references: [id])
+  
+  // Officer info can be derived from the Union, but we store it for history
+  oldOfficerId    String?
+  newOfficerId    String?
+  oldOfficer      User?    @relation("OldMemberOfficer", fields: [oldOfficerId], references: [id])
+  newOfficer      User?    @relation("NewMemberOfficer", fields: [newOfficerId], references: [id])
+  
+  changedByUserId String
+  changedBy       User     @relation("UnionMemberReassignmentChanger", fields: [changedByUserId], references: [id])
+  reason          String?
+  changedAt       DateTime @default(now())
 
-  oldBranchId      String?
-  newBranchId      String
-  oldBranch        Branch? @relation("OldCustBranch", fields: [oldBranchId], references: [id])
-  newBranch        Branch  @relation("NewCustBranch", fields: [newBranchId], references: [id])
-
-  oldOfficerId     String?
-  newOfficerId     String?
-  oldOfficer       User?   @relation("OldCustOfficer", fields: [oldOfficerId], references: [id])
-  newOfficer       User?   @relation("NewCustOfficer", fields: [newOfficerId], references: [id])
-
-  changedByUserId  String
-  changedBy        User    @relation("CustomerReassignmentChanger", fields: [changedByUserId], references: [id])
-
-  reason           String?
-  previousOfficerEndAt DateTime?
-  newOfficerStartAt    DateTime?
-  changedAt        DateTime @default(now())
-
-  @@index([customerId, changedAt])
-  @@index([oldBranchId])
-  @@index([newBranchId])
+  @@index([unionMemberId, changedAt])
+  @@index([oldUnionId])
+  @@index([newUnionId])
   @@index([oldOfficerId])
   @@index([newOfficerId])
   @@index([changedByUserId])
@@ -430,42 +401,42 @@ model CustomerReassignment {
 // ---------- Documents ----------
 
 model DocumentType {
-  id          String  @id @default(cuid())
-  code        String  @unique
-  name        String
-  description String?
-  isActive    Boolean @default(true)
-
-  customerDocs CustomerDocument[]
+  id           String  @id @default(cuid())
+  code         String  @unique
+  name         String
+  description  String?
+  isActive     Boolean @default(true)
+  
+  // [RENAMED] customerDocs to unionMemberDocs
+  unionMemberDocs UnionMemberDocument[]
   loanDocs     LoanDocument[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 }
 
-model CustomerDocument {
-  id               String  @id @default(cuid())
-  customerId       String
-  customer         Customer @relation(fields: [customerId], references: [id])
-
+// [RENAMED] from CustomerDocument
+model UnionMemberDocument {
+  id               String   @id @default(cuid())
+  // [RENAMED] customerId/customer relation
+  unionMemberId    String
+  unionMember      UnionMember @relation(fields: [unionMemberId], references: [id])
   documentTypeId   String
   documentType     DocumentType @relation(fields: [documentTypeId], references: [id])
-
   fileUrl          String
   issuingAuthority String?
   issueDate        DateTime?
   expiryDate       DateTime?
-  verified         Boolean @default(false)
+  verified         Boolean  @default(false)
   verificationNotes String?
-
+  // [RENAMED] relation name
   uploadedByUserId String
-  uploadedBy       User @relation("CustDocUploadedBy", fields: [uploadedByUserId], references: [id])
-
+  uploadedBy       User     @relation("UnionMemberDocUploadedBy", fields: [uploadedByUserId], references: [id])
   uploadedAt       DateTime @default(now())
   deletedAt        DateTime?
 
-  @@index([customerId])
+  @@index([unionMemberId])
   @@index([documentTypeId])
   @@index([uploadedByUserId])
 }
@@ -580,81 +551,5 @@ model UserNote {
   @@index([createdByUserId])
 }
 
-model BranchTransfer {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
-  
-  fromBranchId    String?
-  fromBranch      Branch?  @relation("TransferFromBranch", fields: [fromBranchId], references: [id])
-  toBranchId      String
-  toBranch        Branch   @relation("TransferToBranch", fields: [toBranchId], references: [id])
-  
-  reason          String?
-  transferDate    DateTime @default(now())
-  effectiveDate   DateTime
-  
-  createdByUserId String
-  createdBy       User     @relation("BranchTransferCreatedBy", fields: [createdByUserId], references: [id])
-  
-  // Data migration tracking
-  customersTransferred Int @default(0)
-  loansTransferred     Int @default(0)
-  repaymentsTransferred Int @default(0)
-  
-  status          String   @default("PENDING") // PENDING, COMPLETED, CANCELLED
-  notes           String?
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([userId])
-  @@index([fromBranchId])
-  @@index([toBranchId])
-  @@index([status])
-  @@index([transferDate])
-  @@index([createdByUserId])
-}
-
-model BranchAnalytics {
-  id              String   @id @default(cuid())
-  branchId        String
-  branch          Branch   @relation(fields: [branchId], references: [id])
-  
-  // Performance metrics
-  totalUsers      Int      @default(0)
-  activeUsers     Int      @default(0)
-  totalCustomers  Int      @default(0)
-  totalLoans      Int      @default(0)
-  activeLoans     Int      @default(0)
-  totalLoanAmount Decimal  @default(0) @db.Decimal(14, 2)
-  outstandingAmount Decimal @default(0) @db.Decimal(14, 2)
-  
-  // Revenue tracking
-  monthlyRevenue  Decimal  @default(0) @db.Decimal(14, 2)
-  quarterlyRevenue Decimal @default(0) @db.Decimal(14, 2)
-  yearlyRevenue   Decimal  @default(0) @db.Decimal(14, 2)
-  
-  // Activity metrics
-  dailyLogins     Int      @default(0)
-  weeklyLogins    Int      @default(0)
-  monthlyLogins   Int      @default(0)
-  
-  // Collection metrics
-  collectionRate  Decimal  @default(0) @db.Decimal(5, 2) // percentage
-  overdueLoans    Int      @default(0)
-  defaultedLoans  Int      @default(0)
-  
-  // Period tracking
-  periodStart     DateTime
-  periodEnd       DateTime
-  periodType      String   // daily, weekly, monthly, quarterly, yearly
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([branchId])
-  @@index([periodType])
-  @@index([periodStart])
-  @@index([periodEnd])
-}
+// [DELETED] BranchTransfer model removed
+// [DELETED] BranchAnalytics model removed

@@ -3,7 +3,7 @@ import { Role, LoanStatus, TermUnit, ScheduleStatus } from "@prisma/client";
 import prisma from "../prismaClient";
 
 interface CreateLoanData {
-  unionMemberId: string;
+  customerId: string;
   loanTypeId?: string;
   principalAmount: number;
   termCount: number;
@@ -13,6 +13,7 @@ interface CreateLoanData {
   penaltyFeePerDayAmount: number;
   interestRate?: number;
   notes?: string;
+  assignedOfficerId?: string; // Add assigned officer ID
 }
 
 interface UpdateLoanData {
@@ -29,18 +30,18 @@ interface UpdateLoanData {
 export class LoanService {
   static async createLoan(
     data: CreateLoanData,
-    userId: string,
-    userUnionId: string | null,
+    createdByUserId: string,
+    userBranchId: string | null,
     userRole: Role
   ) {
-    // Validate union member
-    const unionMember = await prisma.unionMember.findUnique({
-      where: { id: data.unionMemberId },
-      include: { union: true },
+    // Validate customer
+    const customer = await prisma.customer.findUnique({
+      where: { id: data.customerId },
+      include: { branch: true },
     });
 
-    if (!unionMember || unionMember.deletedAt) {
-      throw new Error("Union member not found");
+    if (!customer || customer.deletedAt) {
+      throw new Error("Customer not found");
     }
 
     // Validate loan type if provided
@@ -62,10 +63,38 @@ export class LoanService {
       }
     }
 
-    // Check for active loans for this union member
+    // Validate assigned officer if provided
+    if (data.assignedOfficerId) {
+      const assignedOfficer = await prisma.user.findUnique({
+        where: { id: data.assignedOfficerId },
+        include: { branch: true },
+      });
+
+      if (!assignedOfficer || assignedOfficer.deletedAt) {
+        throw new Error("Assigned officer not found");
+      }
+
+      if (
+        assignedOfficer.role !== Role.CREDIT_OFFICER &&
+        assignedOfficer.role !== Role.BRANCH_MANAGER
+      ) {
+        throw new Error(
+          "Assigned officer must be a credit officer or branch manager"
+        );
+      }
+
+      // Ensure assigned officer belongs to the same branch as the customer
+      if (assignedOfficer.branchId !== customer.branchId) {
+        throw new Error(
+          "Assigned officer must belong to the same branch as the customer"
+        );
+      }
+    }
+
+    // Check for active loans for this customer
     const activeLoan = await prisma.loan.findFirst({
       where: {
-        unionMemberId: data.unionMemberId,
+        customerId: data.customerId,
         status: {
           in: [
             LoanStatus.ACTIVE,
@@ -78,7 +107,7 @@ export class LoanService {
     });
 
     if (activeLoan) {
-      throw new Error("Union member already has an active loan");
+      throw new Error("Customer already has an active loan");
     }
 
     // Generate loan number
@@ -106,7 +135,10 @@ export class LoanService {
     let initialStatus: LoanStatus = LoanStatus.DRAFT;
     if (userRole === Role.ADMIN) {
       initialStatus = LoanStatus.APPROVED;
-    } else if (userRole === Role.CREDIT_OFFICER) {
+    } else if (
+      userRole === Role.BRANCH_MANAGER ||
+      userRole === Role.CREDIT_OFFICER
+    ) {
       initialStatus = LoanStatus.PENDING_APPROVAL;
     }
 
@@ -114,8 +146,8 @@ export class LoanService {
     const loan = await prisma.loan.create({
       data: {
         loanNumber,
-        unionMemberId: data.unionMemberId,
-        unionId: unionMember.union.id,
+        customerId: data.customerId,
+        branchId: customer.branchId,
         loanTypeId: data.loanTypeId,
         principalAmount: new Decimal(data.principalAmount),
         termCount: data.termCount,
@@ -125,12 +157,35 @@ export class LoanService {
         processingFeeAmount: new Decimal(data.processingFeeAmount),
         penaltyFeePerDayAmount: new Decimal(data.penaltyFeePerDayAmount),
         status: initialStatus,
+        createdByUserId,
+        assignedOfficerId:
+          data.assignedOfficerId ||
+          customer.currentOfficerId ||
+          createdByUserId,
         notes: data.notes,
       },
       include: {
-        unionMember: true,
-        union: true,
+        customer: true,
         loanType: true,
+        branch: true,
+        assignedOfficer: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
       },
     });
 
@@ -300,12 +355,13 @@ export class LoanService {
       page?: number;
       limit?: number;
       status?: LoanStatus;
-      unionId?: string;
-      unionMemberId?: string;
+      branchId?: string;
+      assignedOfficerId?: string;
+      customerId?: string;
       search?: string;
     },
     userRole: Role,
-    userUnionId?: string,
+    userBranchId?: string,
     userId?: string
   ) {
     const page = filters.page || 1;
@@ -317,8 +373,10 @@ export class LoanService {
     };
 
     // Role-based filtering
-    if (userRole === Role.CREDIT_OFFICER && userUnionId) {
-      where.unionId = userUnionId;
+    if (userRole === Role.CREDIT_OFFICER) {
+      where.assignedOfficerId = userId;
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      where.branchId = userBranchId;
     }
 
     // Apply additional filters
@@ -326,19 +384,23 @@ export class LoanService {
       where.status = filters.status;
     }
 
-    if (filters.unionId) {
-      where.unionId = filters.unionId;
+    if (filters.branchId) {
+      where.branchId = filters.branchId;
     }
 
-    if (filters.unionMemberId) {
-      where.unionMemberId = filters.unionMemberId;
+    if (filters.assignedOfficerId) {
+      where.assignedOfficerId = filters.assignedOfficerId;
+    }
+
+    if (filters.customerId) {
+      where.customerId = filters.customerId;
     }
 
     if (filters.search) {
       where.OR = [
         { loanNumber: { contains: filters.search, mode: "insensitive" } },
         {
-          unionMember: {
+          customer: {
             firstName: { contains: filters.search, mode: "insensitive" },
           },
         },
@@ -357,7 +419,7 @@ export class LoanService {
       prisma.loan.findMany({
         where,
         include: {
-          unionMember: {
+          customer: {
             select: {
               id: true,
               code: true,
@@ -373,10 +435,18 @@ export class LoanService {
               name: true,
             },
           },
-          union: {
+          branch: {
             select: {
               id: true,
               name: true,
+              code: true,
+            },
+          },
+          assignedOfficer: {
+            select: {
+              id: true,
+              email: true,
+              role: true,
             },
           },
           _count: {
@@ -399,15 +469,33 @@ export class LoanService {
   static async getLoanById(
     id: string,
     userRole: Role,
-    userUnionId?: string,
+    userBranchId?: string,
     userId?: string
   ) {
     const loan = await prisma.loan.findUnique({
       where: { id },
       include: {
-        unionMember: true,
+        customer: true,
         loanType: true,
-        union: true,
+        branch: true,
+        assignedOfficer: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
         scheduleItems: {
           where: { deletedAt: null },
           orderBy: { sequence: "asc" },
@@ -449,14 +537,23 @@ export class LoanService {
     if (userRole === Role.ADMIN) {
       // ADMIN can view all loans - no restrictions
       console.log("ADMIN user - allowing access to loan:", id);
-    } else if (userRole === Role.CREDIT_OFFICER && userUnionId) {
-      // CREDIT_OFFICER can only view loans in their union(s)
-      if (loan.unionId !== userUnionId) {
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER can only view loans they are assigned to
+      if (loan.assignedOfficerId !== userId) {
         throw new Error("You do not have permission to view this loan");
       }
       console.log(
-        "CREDIT_OFFICER user - allowing access to loan in union:",
-        userUnionId
+        "CREDIT_OFFICER user - allowing access to assigned loan:",
+        id
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only view loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to view this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing access to loan in branch:",
+        userBranchId
       );
     }
 
@@ -467,7 +564,7 @@ export class LoanService {
     id: string,
     data: UpdateLoanData,
     userRole: Role,
-    userUnionId?: string,
+    userBranchId?: string,
     userId?: string
   ) {
     const loan = await prisma.loan.findUnique({
@@ -492,7 +589,22 @@ export class LoanService {
       console.log("ADMIN user - allowing update to loan:", id);
     } else if (userRole === Role.CREDIT_OFFICER) {
       // CREDIT_OFFICER can only update loans they are assigned to
-      throw new Error("You do not have permission to update this loan");
+      if (loan.assignedOfficerId !== userId) {
+        throw new Error("You do not have permission to update this loan");
+      }
+      console.log(
+        "CREDIT_OFFICER user - allowing update to assigned loan:",
+        id
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only update loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to update this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing update to loan in branch:",
+        userBranchId
+      );
     }
 
     // Validate loan type if changing
@@ -542,9 +654,18 @@ export class LoanService {
       where: { id },
       data: updateData,
       include: {
-        unionMember: true,
-        union: true,
+        customer: true,
         loanType: true,
+        branch: true,
+        assignedOfficer: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
       },
     });
 
@@ -576,7 +697,7 @@ export class LoanService {
     newStatus: LoanStatus,
     notes: string | undefined,
     userRole: Role,
-    userUnionId?: string,
+    userBranchId?: string,
     userId?: string
   ) {
     const loan = await prisma.loan.findUnique({
@@ -594,7 +715,16 @@ export class LoanService {
     } else if (userRole === Role.CREDIT_OFFICER) {
       // CREDIT_OFFICER cannot change loan status
       throw new Error(
-        "Credit officers cannot change loan status. Contact your union manager."
+        "Credit officers cannot change loan status. Contact your branch manager."
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only update status of loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to update this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing status update of loan in branch:",
+        userBranchId
       );
     }
 
@@ -626,9 +756,14 @@ export class LoanService {
       where: { id },
       data: updateData,
       include: {
-        unionMember: true,
-        union: true,
+        customer: true,
         loanType: true,
+        assignedOfficer: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -669,12 +804,12 @@ export class LoanService {
     id: string,
     disbursedAt: Date | undefined,
     userRole: Role,
-    userUnionId?: string
+    userBranchId?: string
   ) {
     const loan = await prisma.loan.findUnique({
       where: { id },
       include: {
-        unionMember: true,
+        customer: true,
       },
     });
 
@@ -692,7 +827,16 @@ export class LoanService {
       console.log("ADMIN user - allowing disbursement of loan:", id);
     } else if (userRole === Role.CREDIT_OFFICER) {
       // CREDIT_OFFICER cannot disburse loans
-      throw new Error("Only union managers and admins can disburse loans");
+      throw new Error("Only branch managers and admins can disburse loans");
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only disburse loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to disburse this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing disbursement of loan in branch:",
+        userBranchId
+      );
     }
 
     const updatedLoan = await prisma.loan.update({
@@ -702,9 +846,14 @@ export class LoanService {
         disbursedAt: disbursedAt || new Date(),
       },
       include: {
-        unionMember: true,
-        union: true,
+        customer: true,
         loanType: true,
+        assignedOfficer: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -717,17 +866,91 @@ export class LoanService {
     reason: string | undefined,
     changedByUserId: string,
     userRole: Role,
-    userUnionId?: string
+    userBranchId?: string
   ) {
-    // Loan assignment feature has been deprecated in the new Union-based system
-    // Loans are now assigned by union membership, not individual officers
-    throw new Error("Loan assignment has been deprecated. Use union-based access control instead.");
+    const loan = await prisma.loan.findUnique({
+      where: { id },
+    });
+
+    if (!loan || loan.deletedAt) {
+      throw new Error("Loan not found");
+    }
+
+    // Permission check based on role
+    if (userRole === Role.ADMIN) {
+      // ADMIN can reassign all loans - no restrictions
+      console.log("ADMIN user - allowing reassignment of loan:", id);
+    } else if (userRole === Role.CREDIT_OFFICER) {
+      // CREDIT_OFFICER cannot reassign loans
+      throw new Error("Credit officers cannot reassign loans");
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only reassign loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to reassign this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing reassignment of loan in branch:",
+        userBranchId
+      );
+    }
+
+    // Validate new officer
+    const newOfficer = await prisma.user.findUnique({
+      where: { id: newOfficerId },
+    });
+
+    if (!newOfficer || newOfficer.deletedAt || !newOfficer.isActive) {
+      throw new Error("Officer not found or inactive");
+    }
+
+    if (newOfficer.role === Role.ADMIN) {
+      throw new Error("Cannot assign loan to an admin");
+    }
+
+    if (newOfficer.branchId !== loan.branchId) {
+      throw new Error("Officer must belong to the same branch as the loan");
+    }
+
+    const oldOfficerId = loan.assignedOfficerId;
+
+    // Update loan and create assignment history
+    const [updatedLoan] = await prisma.$transaction([
+      prisma.loan.update({
+        where: { id },
+        data: {
+          assignedOfficerId: newOfficerId,
+        },
+        include: {
+          customer: true,
+          assignedOfficer: {
+            select: {
+              id: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      }),
+      prisma.loanAssignmentHistory.create({
+        data: {
+          loanId: id,
+          oldOfficerId,
+          newOfficerId,
+          oldBranchId: loan.branchId,
+          newBranchId: loan.branchId,
+          changedByUserId,
+          reason,
+        },
+      }),
+    ]);
+
+    return updatedLoan;
   }
 
   static async deleteLoan(
     id: string,
     userRole: Role,
-    userUnionId?: string,
+    userBranchId?: string,
     userId?: string
   ) {
     const loan = await prisma.loan.findUnique({
@@ -752,7 +975,22 @@ export class LoanService {
       console.log("ADMIN user - allowing delete of loan:", id);
     } else if (userRole === Role.CREDIT_OFFICER) {
       // CREDIT_OFFICER can only delete loans they are assigned to
-      throw new Error("You do not have permission to delete this loan");
+      if (loan.assignedOfficerId !== userId) {
+        throw new Error("You do not have permission to delete this loan");
+      }
+      console.log(
+        "CREDIT_OFFICER user - allowing delete of assigned loan:",
+        id
+      );
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only delete loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to delete this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing delete of loan in branch:",
+        userBranchId
+      );
     }
 
     // Soft delete
@@ -765,7 +1003,7 @@ export class LoanService {
   static async getLoanSchedule(
     id: string,
     userRole: Role,
-    userUnionId?: string,
+    userBranchId?: string,
     userId?: string
   ) {
     const loan = await prisma.loan.findUnique({
@@ -780,9 +1018,27 @@ export class LoanService {
     if (userRole === Role.ADMIN) {
       // ADMIN can view all loans
       console.log("ADMIN user - allowing access to loan:", id);
+    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+      // BRANCH_MANAGER can only view loans in their branch
+      if (loan.branchId !== userBranchId) {
+        throw new Error("You do not have permission to view this loan");
+      }
+      console.log(
+        "BRANCH_MANAGER user - allowing access to loan in branch:",
+        userBranchId
+      );
     } else if (userRole === Role.CREDIT_OFFICER) {
-      // CREDIT_OFFICER can view loans they created
-      throw new Error("You do not have permission to view this loan");
+      // CREDIT_OFFICER can view loans they created or are assigned to
+      if (
+        loan.createdByUserId !== userId &&
+        loan.assignedOfficerId !== userId
+      ) {
+        throw new Error("You do not have permission to view this loan");
+      }
+      console.log(
+        "CREDIT_OFFICER user - allowing access to loan created by or assigned to:",
+        userId
+      );
     } else {
       // Unknown role - deny access
       throw new Error("You do not have permission to view this loan");

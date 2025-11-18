@@ -40,15 +40,9 @@ export const authenticate = async (
         id: true,
         email: true,
         role: true,
-        branchId: true,
+        supervisorId: true,
         isActive: true,
         deletedAt: true,
-        branch: {
-          select: {
-            id: true,
-            isActive: true,
-          },
-        },
       },
     });
 
@@ -56,27 +50,18 @@ export const authenticate = async (
       return ApiResponseUtil.error(res, "User account is inactive", 401);
     }
 
-    // Check if user's branch is active (for non-admin users)
-    if (user.branchId && user.branch && !user.branch.isActive) {
-      return ApiResponseUtil.error(
-        res,
-        "Branch is inactive. Please contact administrator.",
-        401
-      );
-    }
-
     req.user = {
       id: user.id,
       email: user.email,
       role: user.role,
-      branchId: user.branchId,
+      supervisorId: user.supervisorId,
     };
 
     console.log("Auth middleware: User authenticated:", {
       id: user.id,
       email: user.email,
       role: user.role,
-      branchId: user.branchId,
+      supervisorId: user.supervisorId,
       isActive: user.isActive,
     });
 

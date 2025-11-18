@@ -8,7 +8,7 @@ export class LoanController {
       const loan = await LoanService.createLoan(
         req.body,
         req.user!.id,
-        req.user!.branchId,
+        req.user!.unionId ?? null,
         req.user!.role
       );
 
@@ -29,16 +29,15 @@ export class LoanController {
         page: req.query.page ? parseInt(req.query.page as string) : 1,
         limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
         status: req.query.status as any,
-        branchId: req.query.branchId as string,
-        assignedOfficerId: req.query.assignedOfficerId as string,
-        customerId: req.query.customerId as string,
+        unionId: req.query.unionId as string,
+        unionMemberId: req.query.unionMemberId as string,
         search: req.query.search as string,
       };
 
       const result = await LoanService.getLoans(
         filters,
         req.user!.role,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 
@@ -66,7 +65,7 @@ export class LoanController {
       const loan = await LoanService.getLoanById(
         id,
         req.user!.role,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 
@@ -88,7 +87,7 @@ export class LoanController {
         id,
         req.body,
         req.user!.role,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 
@@ -116,7 +115,7 @@ export class LoanController {
         status,
         notes,
         req.user!.role,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 
@@ -145,7 +144,7 @@ export class LoanController {
         id,
         disbursedAt,
         req.user!.role,
-        req.user!.branchId || undefined
+        req.user!.unionId || undefined
       );
 
       return ApiResponseUtil.success(res, loan, "Loan disbursed successfully");
@@ -169,7 +168,7 @@ export class LoanController {
         reason,
         req.user!.id,
         req.user!.role,
-        req.user!.branchId || undefined
+        req.user!.unionId || undefined
       );
 
       return ApiResponseUtil.success(res, loan, "Loan assigned successfully");
@@ -189,7 +188,7 @@ export class LoanController {
       await LoanService.deleteLoan(
         id,
         req.user!.role,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 
@@ -214,7 +213,7 @@ export class LoanController {
       const schedule = await LoanService.getLoanSchedule(
         id,
         req.user!.role,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 

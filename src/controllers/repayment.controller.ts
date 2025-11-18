@@ -40,7 +40,7 @@ export class RepaymentController {
       const result = await RepaymentService.getRepayments(
         filters,
         req.user!.role as any,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 
@@ -72,7 +72,7 @@ export class RepaymentController {
       const repayment = await RepaymentService.getRepaymentById(
         id,
         req.user!.role as any,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 
@@ -98,7 +98,7 @@ export class RepaymentController {
         id,
         req.body,
         req.user!.role as any,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 
@@ -127,7 +127,7 @@ export class RepaymentController {
       await RepaymentService.deleteRepayment(
         id,
         req.user!.role as any,
-        req.user!.branchId || undefined
+        req.user!.unionId || undefined
       );
 
       return ApiResponseUtil.success(
@@ -170,14 +170,14 @@ export class RepaymentController {
       console.log("Calling RepaymentService.getRepaymentSchedules with:", {
         filters,
         userRole: req.user.role,
-        userBranchId: req.user.branchId,
+        userUnionId: req.user.unionId,
         userId: req.user.id,
       });
 
       const result = await RepaymentService.getRepaymentSchedules(
         filters,
         req.user.role as any,
-        req.user.branchId || undefined,
+        req.user.unionId || undefined,
         req.user.id
       );
 
@@ -219,7 +219,7 @@ export class RepaymentController {
       const schedule = await RepaymentService.getRepaymentScheduleByLoan(
         loanId,
         req.user!.role as any,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 
@@ -248,7 +248,7 @@ export class RepaymentController {
       const summary = await RepaymentService.getRepaymentSummary(
         filters,
         req.user!.role as any,
-        req.user!.branchId || undefined,
+        req.user!.unionId || undefined,
         req.user!.id
       );
 

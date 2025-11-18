@@ -27,7 +27,7 @@ export class UserController {
         page: req.query.page ? parseInt(req.query.page as string) : 1,
         limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
         role: req.query.role as any,
-        branchId: req.query.branchId as string,
+        supervisorId: req.query.supervisorId as string,
         isActive: req.query.isActive
           ? req.query.isActive === "true"
           : undefined,
@@ -37,7 +37,7 @@ export class UserController {
       const users = await UserService.getUsers(
         filters,
         req.user!.role,
-        req.user!.branchId || undefined,
+        req.user!.supervisorId || undefined,
         req.user!.id
       );
 
@@ -56,7 +56,8 @@ export class UserController {
       const user = await UserService.getUserById(
         req.params.id!,
         req.user!.role,
-        req.user!.branchId || undefined
+        req.user!.supervisorId || undefined,
+        req.user!.id
       );
 
       return ApiResponseUtil.success(res, user, "User retrieved successfully");
@@ -123,17 +124,17 @@ export class UserController {
         normalizedBody.role = req.body.role;
       }
 
-      if (req.body.branchId !== undefined) {
-        const branchVal = req.body.branchId;
+      if (req.body.supervisorId !== undefined) {
+        const supervisorVal = req.body.supervisorId;
         if (
-          branchVal === null ||
-          branchVal === "null" ||
-          branchVal === "" ||
-          branchVal === undefined
+          supervisorVal === null ||
+          supervisorVal === "null" ||
+          supervisorVal === "" ||
+          supervisorVal === undefined
         ) {
-          normalizedBody.branchId = null;
+          normalizedBody.supervisorId = null;
         } else {
-          normalizedBody.branchId = branchVal;
+          normalizedBody.supervisorId = supervisorVal;
         }
       }
 
@@ -182,7 +183,7 @@ export class UserController {
         req.params.id!,
         req.user!.id,
         req.user!.role,
-        req.user!.branchId || undefined
+        req.user!.supervisorId || undefined
       );
 
       return ApiResponseUtil.success(res, null, "User deleted successfully");
@@ -232,7 +233,7 @@ export class UserController {
       const users = await UserService.exportUsers(
         req.query,
         req.user!.role,
-        req.user!.branchId || undefined,
+        req.user!.supervisorId || undefined,
         req.user!.id
       );
 

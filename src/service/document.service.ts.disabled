@@ -1,5 +1,6 @@
+import * as fs from "fs";
+import * as path from "path";
 import prisma from "../prismaClient";
-import type { UnionMemberDocument, LoanDocument } from "@prisma/client";
 
 export class DocumentService {
   static async getDocumentTypes() {
@@ -132,7 +133,7 @@ export class DocumentService {
     }
 
     // Check if document type is being used by any documents
-    const unionMemberDocsCount = await prisma.unionMemberDocument.count({
+    const customerDocsCount = await prisma.customerDocument.count({
       where: {
         documentTypeId: id,
         deletedAt: null,
@@ -146,7 +147,7 @@ export class DocumentService {
       },
     });
 
-    if (unionMemberDocsCount > 0 || loanDocsCount > 0) {
+    if (customerDocsCount > 0 || loanDocsCount > 0) {
       throw new Error(
         "Cannot delete document type that is being used by existing documents"
       );
@@ -164,8 +165,8 @@ export class DocumentService {
     return deletedType;
   }
 
-  static async uploadUnionMemberDocument(
-    unionMemberId: string,
+  static async uploadCustomerDocument(
+    customerId: string,
     documentTypeId: string,
     fileUrl: string,
     uploadedByUserId: string,
@@ -175,13 +176,13 @@ export class DocumentService {
       expiryDate?: Date;
     }
   ) {
-    // Validate union member
-    const unionMember = await prisma.unionMember.findUnique({
-      where: { id: unionMemberId },
+    // Validate customer
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
     });
 
-    if (!unionMember || unionMember.deletedAt) {
-      throw new Error("Union member not found");
+    if (!customer || customer.deletedAt) {
+      throw new Error("Customer not found");
     }
 
     // Validate document type
@@ -193,9 +194,9 @@ export class DocumentService {
       throw new Error("Document type not found or inactive");
     }
 
-    const document = await prisma.unionMemberDocument.create({
+    const document = await prisma.customerDocument.create({
       data: {
-        unionMemberId,
+        customerId,
         documentTypeId,
         fileUrl,
         uploadedByUserId,
@@ -270,18 +271,18 @@ export class DocumentService {
     return document;
   }
 
-  static async getUnionMemberDocuments(unionMemberId: string) {
-    const unionMember = await prisma.unionMember.findUnique({
-      where: { id: unionMemberId },
+  static async getCustomerDocuments(customerId: string) {
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
     });
 
-    if (!unionMember || unionMember.deletedAt) {
-      throw new Error("Union member not found");
+    if (!customer || customer.deletedAt) {
+      throw new Error("Customer not found");
     }
 
-    const documents = await prisma.unionMemberDocument.findMany({
+    const documents = await prisma.customerDocument.findMany({
       where: {
-        unionMemberId,
+        customerId,
         deletedAt: null,
       },
       include: {
@@ -300,7 +301,7 @@ export class DocumentService {
   }
 
   static async getDocumentById(documentId: string) {
-    const document = await prisma.unionMemberDocument.findUnique({
+    const document = await prisma.customerDocument.findUnique({
       where: {
         id: documentId,
         deletedAt: null,
@@ -368,9 +369,9 @@ export class DocumentService {
     return documents;
   }
 
-  static async deleteDocument(id: string, type: "unionMember" | "loan") {
-    if (type === "unionMember") {
-      const document = await prisma.unionMemberDocument.findUnique({
+  static async deleteDocument(id: string, type: "customer" | "loan") {
+    if (type === "customer") {
+      const document = await prisma.customerDocument.findUnique({
         where: { id },
       });
 
@@ -378,7 +379,17 @@ export class DocumentService {
         throw new Error("Document not found");
       }
 
-      await prisma.unionMemberDocument.update({
+      // Delete file from filesystem
+      try {
+        const filePath = path.join(process.cwd(), document.fileUrl);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (error) {
+        console.error("Error deleting file:", error);
+      }
+
+      await prisma.customerDocument.update({
         where: { id },
         data: { deletedAt: new Date() },
       });
@@ -391,6 +402,16 @@ export class DocumentService {
         throw new Error("Document not found");
       }
 
+      // Delete file from filesystem
+      try {
+        const filePath = path.join(process.cwd(), document.fileUrl);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (error) {
+        console.error("Error deleting file:", error);
+      }
+
       await prisma.loanDocument.update({
         where: { id },
         data: { deletedAt: new Date() },
@@ -400,12 +421,12 @@ export class DocumentService {
 
   static async verifyDocument(
     id: string,
-    type: "unionMember" | "loan",
+    type: "customer" | "loan",
     verified: boolean,
     verificationNotes?: string
   ) {
-    if (type === "unionMember") {
-      const document = await prisma.unionMemberDocument.update({
+    if (type === "customer") {
+      const document = await prisma.customerDocument.update({
         where: { id },
         data: {
           verified,
@@ -413,7 +434,7 @@ export class DocumentService {
         },
         include: {
           documentType: true,
-          unionMember: true,
+          customer: true,
         },
       });
 

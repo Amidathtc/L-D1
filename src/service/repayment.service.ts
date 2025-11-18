@@ -88,7 +88,7 @@ export class RepaymentService {
       include: {
         loan: {
           include: {
-            customer: true,
+            unionMember: true,
           },
         },
         receivedBy: {
@@ -207,7 +207,7 @@ export class RepaymentService {
       dateTo?: string;
     },
     userRole: Role,
-    userBranchId?: string,
+    userUnionId?: string,
     userId?: string
   ) {
     const page = filters.page || 1;
@@ -222,7 +222,7 @@ export class RepaymentService {
     console.log("=== REPAYMENT FILTERING DEBUG ===");
     console.log("User role:", userRole);
     console.log("User ID:", userId);
-    console.log("User branch ID:", userBranchId);
+    console.log("User branch ID:", userUnionId);
     console.log(
       "Where clause before role filtering:",
       JSON.stringify(where, null, 2)
@@ -236,13 +236,13 @@ export class RepaymentService {
     if (userRole === Role.ADMIN) {
       // ADMIN can see all repayments - no additional filtering
       console.log("ADMIN user - showing all repayments");
-    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+    } else if (userRole === Role.BRANCH_MANAGER && userUnionId) {
       // BRANCH_MANAGER can only see repayments from their branch
       where.loan = {
-        branchId: userBranchId,
+        branchId: userUnionId,
         deletedAt: null,
       };
-      console.log("BRANCH_MANAGER user - filtering by branchId:", userBranchId);
+      console.log("BRANCH_MANAGER user - filtering by branchId:", userUnionId);
     } else if (userRole === Role.CREDIT_OFFICER) {
       // CREDIT_OFFICER can see repayments for loans they created or are assigned to
       where.loan = {
@@ -298,7 +298,7 @@ export class RepaymentService {
             select: {
               id: true,
               loanNumber: true,
-              customer: {
+              unionMember: {
                 select: {
                   id: true,
                   code: true,
@@ -340,13 +340,13 @@ export class RepaymentService {
   static async getRepaymentById(
     id: string,
     userRole: Role,
-    userBranchId?: string,
+    userUnionId?: string,
     userId?: string
   ) {
     console.log("getRepaymentById called with:", {
       id,
       userRole,
-      userBranchId,
+      userUnionId,
       userId,
     });
 
@@ -358,22 +358,8 @@ export class RepaymentService {
       include: {
         loan: {
           include: {
-            customer: true,
-            branch: true,
-            assignedOfficer: {
-              select: {
-                id: true,
-                email: true,
-                role: true,
-              },
-            },
-            createdBy: {
-              select: {
-                id: true,
-                email: true,
-                role: true,
-              },
-            },
+            unionMember: true,
+            union: true,
           },
         },
         receivedBy: {
@@ -399,48 +385,29 @@ export class RepaymentService {
     console.log("Repayment found:", {
       id: repayment.id,
       loanId: repayment.loanId,
-      loanBranchId: repayment.loan.branchId,
-      assignedOfficerId: repayment.loan.assignedOfficerId,
-      createdByUserId: repayment.loan.createdByUserId,
+      loanUnionId: repayment.loan.unionId,
     });
 
     // Permission check based on role
     if (userRole === Role.ADMIN) {
       // ADMIN can view any repayment
       console.log("ADMIN user - allowing access to repayment:", id);
-    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+    } else if (userRole === Role.BRANCH_MANAGER && userUnionId) {
       // BRANCH_MANAGER can only view repayments from their branch
-      if (repayment.loan.branchId !== userBranchId) {
+      if (repayment.loan.unionId !== userUnionId) {
         console.log("BRANCH_MANAGER access denied - branch mismatch:", {
-          userBranchId,
-          loanBranchId: repayment.loan.branchId,
+          userUnionId,
+          loanUnionId: repayment.loan.unionId,
         });
         throw new Error("You do not have permission to view this repayment");
       }
       console.log(
         "BRANCH_MANAGER user - allowing access to repayment in branch:",
-        userBranchId
+        userUnionId
       );
     } else if (userRole === Role.CREDIT_OFFICER) {
-      // CREDIT_OFFICER can view repayments for loans they created or are assigned to
-      if (
-        repayment.loan.assignedOfficerId !== userId &&
-        repayment.loan.createdByUserId !== userId
-      ) {
-        console.log(
-          "CREDIT_OFFICER access denied - not assigned or created by user:",
-          {
-            userId,
-            assignedOfficerId: repayment.loan.assignedOfficerId,
-            createdByUserId: repayment.loan.createdByUserId,
-          }
-        );
-        throw new Error("You do not have permission to view this repayment");
-      }
-      console.log(
-        "CREDIT_OFFICER user - allowing access to repayment for loan created/assigned to:",
-        userId
-      );
+      // CREDIT_OFFICER cannot view repayments (deprecated with new model)
+      throw new Error("You do not have permission to view this repayment");
     } else {
       // Unknown role - deny access
       console.log("Unknown user role - denying access");
@@ -458,7 +425,7 @@ export class RepaymentService {
       notes?: string;
     },
     userRole: Role,
-    userBranchId?: string,
+    userUnionId?: string,
     userId?: string
   ) {
     const repayment = await prisma.repayment.findUnique({
@@ -473,17 +440,14 @@ export class RepaymentService {
     }
 
     // Permission check
-    if (
-      userRole === Role.CREDIT_OFFICER &&
-      repayment.loan.assignedOfficerId !== userId
-    ) {
+    if (userRole === Role.CREDIT_OFFICER) {
       throw new Error("You do not have permission to update this repayment");
     }
 
     if (
       userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      repayment.loan.branchId !== userBranchId
+      userUnionId &&
+      repayment.loan.unionId !== userUnionId
     ) {
       throw new Error("You do not have permission to update this repayment");
     }
@@ -505,7 +469,7 @@ export class RepaymentService {
       include: {
         loan: {
           include: {
-            customer: true,
+            unionMember: true,
           },
         },
         receivedBy: {
@@ -523,7 +487,7 @@ export class RepaymentService {
   static async deleteRepayment(
     id: string,
     userRole: Role,
-    userBranchId?: string
+    userUnionId?: string
   ) {
     const repayment = await prisma.repayment.findUnique({
       where: { id },
@@ -544,8 +508,8 @@ export class RepaymentService {
 
     if (
       userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      repayment.loan.branchId !== userBranchId
+      userUnionId &&
+      repayment.loan.unionId !== userUnionId
     ) {
       throw new Error("You do not have permission to delete this repayment");
     }
@@ -618,7 +582,7 @@ export class RepaymentService {
       dateTo?: string;
     },
     userRole: Role,
-    userBranchId?: string,
+    userUnionId?: string,
     userId?: string
   ) {
     console.log("getRepaymentSchedules called with filters:", filters);
@@ -626,7 +590,7 @@ export class RepaymentService {
       "User role:",
       userRole,
       "branchId:",
-      userBranchId,
+      userUnionId,
       "userId:",
       userId
     );
@@ -664,19 +628,19 @@ export class RepaymentService {
       "User ID:",
       userId,
       "Branch ID:",
-      userBranchId
+      userUnionId
     );
 
     if (userRole === Role.ADMIN) {
       // ADMIN can see all schedules - no additional filtering
       console.log("ADMIN user - showing all repayment schedules");
-    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+    } else if (userRole === Role.BRANCH_MANAGER && userUnionId) {
       // BRANCH_MANAGER can only see schedules for loans in their branch
       where.loan = {
-        branchId: userBranchId,
+        branchId: userUnionId,
         deletedAt: null,
       };
-      console.log("BRANCH_MANAGER user - filtering by branchId:", userBranchId);
+      console.log("BRANCH_MANAGER user - filtering by branchId:", userUnionId);
     } else if (userRole === Role.CREDIT_OFFICER && userId) {
       // CREDIT_OFFICER can only see schedules for loans they created or are assigned to
       where.loan = {
@@ -712,7 +676,7 @@ export class RepaymentService {
           include: {
             loan: {
               include: {
-                customer: {
+                unionMember: {
                   select: {
                     id: true,
                     firstName: true,
@@ -720,23 +684,17 @@ export class RepaymentService {
                     code: true,
                   },
                 },
-                branch: {
+                union: {
                   select: {
                     id: true,
                     name: true,
-                    code: true,
+                    location: true,
                   },
                 },
                 loanType: {
                   select: {
                     id: true,
                     name: true,
-                  },
-                },
-                assignedOfficer: {
-                  select: {
-                    id: true,
-                    email: true,
                   },
                 },
               },
@@ -772,16 +730,15 @@ export class RepaymentService {
   static async getRepaymentScheduleByLoan(
     loanId: string,
     userRole: Role,
-    userBranchId?: string,
+    userUnionId?: string,
     userId?: string
   ) {
     // Verify loan access
     const loan = await prisma.loan.findUnique({
       where: { id: loanId },
       include: {
-        customer: true,
-        branch: true,
-        assignedOfficer: true,
+        unionMember: true,
+        union: true,
       },
     });
 
@@ -792,15 +749,15 @@ export class RepaymentService {
     // Check permissions
     if (
       userRole === Role.BRANCH_MANAGER &&
-      userBranchId &&
-      loan.branchId !== userBranchId
+      userUnionId &&
+      loan.unionId !== userUnionId
     ) {
       throw new Error(
         "You do not have permission to view this loan's schedule"
       );
     }
 
-    if (userRole === Role.CREDIT_OFFICER && loan.assignedOfficerId !== userId) {
+    if (userRole === Role.CREDIT_OFFICER) {
       throw new Error(
         "You do not have permission to view this loan's schedule"
       );
@@ -849,7 +806,7 @@ export class RepaymentService {
       dateTo?: string;
     },
     userRole: Role,
-    userBranchId?: string,
+    userUnionId?: string,
     userId?: string
   ) {
     const where: any = {
@@ -872,9 +829,9 @@ export class RepaymentService {
     }
 
     // Apply role-based filtering
-    if (userRole === Role.BRANCH_MANAGER && userBranchId) {
+    if (userRole === Role.BRANCH_MANAGER && userUnionId) {
       where.loan = {
-        branchId: userBranchId,
+        branchId: userUnionId,
       };
     } else if (userRole === Role.CREDIT_OFFICER) {
       where.loan = {
@@ -900,7 +857,7 @@ export class RepaymentService {
           include: {
             loan: {
               include: {
-                customer: {
+                unionMember: {
                   select: {
                     firstName: true,
                     lastName: true,

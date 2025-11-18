@@ -4,21 +4,19 @@ import prisma from "../prismaClient";
 // Optimized query builder for common operations
 export class OptimizedQueryService {
   // Optimized user queries with proper includes
-  static async getUsersWithBranch(filters: {
+  static async getUsersWithRelations(filters: {
     page?: number;
     limit?: number;
     role?: string;
-    branchId?: string;
     isActive?: boolean;
     search?: string;
   }) {
-    const { page = 1, limit = 10, role, branchId, isActive, search } = filters;
+    const { page = 1, limit = 10, role, isActive, search } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {
       deletedAt: null,
       ...(role && { role: role as any }),
-      ...(branchId && { branchId }),
       ...(isActive !== undefined && { isActive }),
       ...(search && {
         OR: [{ email: { contains: search, mode: "insensitive" } }],
@@ -31,11 +29,12 @@ export class OptimizedQueryService {
         skip,
         take: limit,
         include: {
-          branch: {
+          supervisor: {
             select: {
               id: true,
-              name: true,
-              code: true,
+              email: true,
+              firstName: true,
+              lastName: true,
             },
           },
         },
@@ -55,27 +54,24 @@ export class OptimizedQueryService {
     };
   }
 
-  // Optimized customer queries with proper includes
-  static async getCustomersWithRelations(filters: {
+  // Optimized union member queries with proper includes
+  static async getUnionMembersWithRelations(filters: {
     page?: number;
     limit?: number;
-    branchId?: string;
-    currentOfficerId?: string;
+    unionId?: string;
     search?: string;
   }) {
     const {
       page = 1,
       limit = 10,
-      branchId,
-      currentOfficerId,
+      unionId,
       search,
     } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {
       deletedAt: null,
-      ...(branchId && { branchId }),
-      ...(currentOfficerId && { currentOfficerId }),
+      ...(unionId && { unionId }),
       ...(search && {
         OR: [
           { firstName: { contains: search, mode: "insensitive" } },
@@ -86,17 +82,17 @@ export class OptimizedQueryService {
       }),
     };
 
-    const [customers, total] = await Promise.all([
-      prisma.customer.findMany({
+    const [unionMembers, total] = await Promise.all([
+      prisma.unionMember.findMany({
         where,
         skip,
         take: limit,
         include: {
-          branch: {
+          union: {
             select: {
               id: true,
               name: true,
-              code: true,
+              location: true,
             },
           },
           currentOfficer: {
@@ -115,11 +111,11 @@ export class OptimizedQueryService {
         },
         orderBy: { createdAt: "desc" },
       }),
-      prisma.customer.count({ where }),
+      prisma.unionMember.count({ where }),
     ]);
 
     return {
-      customers,
+      unionMembers,
       pagination: {
         page,
         limit,
@@ -134,33 +130,49 @@ export class OptimizedQueryService {
     page?: number;
     limit?: number;
     status?: string;
-    branchId?: string;
-    assignedOfficerId?: string;
-    customerId?: string;
+    unionId?: string;
+    unionMemberId?: string;
     search?: string;
   }) {
     const {
       page = 1,
       limit = 10,
       status,
-      branchId,
-      assignedOfficerId,
-      customerId,
+      unionId,
+      unionMemberId,
       search,
     } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {
       deletedAt: null,
-      ...(status && { status: status as any }),
-      ...(branchId && { branchId }),
-      ...(assignedOfficerId && { assignedOfficerId }),
-      ...(customerId && { customerId }),
+      ...(status && status !== "OVERDUE" && { status: status as any }),
+      ...(status === "OVERDUE" && {
+        AND: [
+          { status: { not: "COMPLETED" } },
+          {
+            OR: [
+              {
+                scheduleItems: {
+                  some: {
+                    AND: [
+                      { dueDate: { lt: new Date() } },
+                      { status: { not: "PAID" } },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      }),
+      ...(unionId && { unionId }),
+      ...(unionMemberId && { unionMemberId }),
       ...(search && {
         OR: [
           { loanNumber: { contains: search, mode: "insensitive" } },
           {
-            customer: {
+            unionMember: {
               OR: [
                 { firstName: { contains: search, mode: "insensitive" } },
                 { lastName: { contains: search, mode: "insensitive" } },
@@ -178,7 +190,7 @@ export class OptimizedQueryService {
         skip,
         take: limit,
         include: {
-          customer: {
+          unionMember: {
             select: {
               id: true,
               firstName: true,
@@ -194,25 +206,11 @@ export class OptimizedQueryService {
               description: true,
             },
           },
-          branch: {
+          union: {
             select: {
               id: true,
               name: true,
-              code: true,
-            },
-          },
-          assignedOfficer: {
-            select: {
-              id: true,
-              email: true,
-              role: true,
-            },
-          },
-          createdBy: {
-            select: {
-              id: true,
-              email: true,
-              role: true,
+              location: true,
             },
           },
           _count: {
@@ -238,55 +236,53 @@ export class OptimizedQueryService {
     };
   }
 
-  // Optimized branch queries with statistics
-  static async getBranchesWithStats(filters: {
+  // Optimized union queries with statistics
+  static async getUnionsWithStats(filters: {
     page?: number;
     limit?: number;
-    isActive?: boolean;
     search?: string;
   }) {
-    const { page = 1, limit = 10, isActive, search } = filters;
+    const { page = 1, limit = 10, search } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {
       deletedAt: null,
-      ...(isActive !== undefined && { isActive }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: "insensitive" } },
-          { code: { contains: search, mode: "insensitive" } },
+          { location: { contains: search, mode: "insensitive" } },
         ],
       }),
     };
 
-    const [branches, total] = await Promise.all([
-      prisma.branch.findMany({
+    const [unions, total] = await Promise.all([
+      prisma.union.findMany({
         where,
         skip,
         take: limit,
         include: {
-          manager: {
+          creditOfficer: {
             select: {
               id: true,
               email: true,
-              role: true,
+              firstName: true,
+              lastName: true,
             },
           },
           _count: {
             select: {
-              users: true,
-              customers: true,
+              unionMembers: true,
               loans: true,
             },
           },
         },
         orderBy: { createdAt: "desc" },
       }),
-      prisma.branch.count({ where }),
+      prisma.union.count({ where }),
     ]);
 
     return {
-      branches,
+      unions,
       pagination: {
         page,
         limit,
@@ -300,18 +296,18 @@ export class OptimizedQueryService {
   static async getDashboardStats() {
     const [
       totalUsers,
-      totalCustomers,
+      totalUnionMembers,
       totalLoans,
-      totalBranches,
+      totalUnions,
       activeLoans,
       overdueLoans,
       totalLoanAmount,
       totalRepaidAmount,
     ] = await Promise.all([
       prisma.user.count({ where: { deletedAt: null } }),
-      prisma.customer.count({ where: { deletedAt: null } }),
+      prisma.unionMember.count({ where: { deletedAt: null } }),
       prisma.loan.count({ where: { deletedAt: null } }),
-      prisma.branch.count({ where: { deletedAt: null } }),
+      prisma.union.count({ where: { deletedAt: null } }),
       prisma.loan.count({
         where: {
           deletedAt: null,
@@ -336,9 +332,9 @@ export class OptimizedQueryService {
 
     return {
       totalUsers,
-      totalCustomers,
+      totalUnionMembers,
       totalLoans,
-      totalBranches,
+      totalUnions,
       activeLoans,
       overdueLoans,
       totalLoanAmount: totalLoanAmount._sum.principalAmount || 0,
@@ -453,7 +449,7 @@ export class OptimizedQueryService {
               id: true,
               loanNumber: true,
               principalAmount: true,
-              customer: {
+              unionMember: {
                 select: {
                   id: true,
                   firstName: true,

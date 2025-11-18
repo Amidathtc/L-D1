@@ -24,13 +24,13 @@ export class AuditLogService {
     const where: any = {};
 
     // Role-based filtering for audit logs
-    if (filters.userRole === Role.BRANCH_MANAGER && filters.userBranchId) {
+    if (filters.userRole === Role.SUPERVISOR && filters.userBranchId) {
       // Branch managers can only see audit logs from their branch
       where.actor = {
         branchId: filters.userBranchId,
       };
       console.log(
-        "AuditLogService: Filtering by branch for BRANCH_MANAGER:",
+        "AuditLogService: Filtering by branch for SUPERVISOR:",
         filters.userBranchId
       );
     } else if (

@@ -73,7 +73,6 @@ export class AuthService {
 
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { branch: true },
     });
 
     console.log("AuthService.login: User found:", {
@@ -82,8 +81,7 @@ export class AuthService {
       role: user?.role,
       isActive: user?.isActive,
       deletedAt: user?.deletedAt,
-      branchId: user?.branchId,
-      branchActive: user?.branch?.isActive,
+      supervisorId: user?.supervisorId,
     });
 
     if (!user || user.deletedAt) {
@@ -94,12 +92,6 @@ export class AuthService {
     if (!user.isActive) {
       console.log("AuthService.login: User account is inactive");
       throw new Error("Account is inactive");
-    }
-
-    // Check if user's branch is active (for non-admin users)
-    if (user.branchId && user.branch && !user.branch.isActive) {
-      console.log("AuthService.login: User's branch is inactive");
-      throw new Error("Branch is inactive. Please contact administrator.");
     }
 
     const isPasswordValid = await PasswordUtil.compare(
@@ -134,7 +126,6 @@ export class AuthService {
       userId: user.id,
       email: user.email,
       role: user.role,
-      branchId: user.branchId,
     };
 
     console.log(
@@ -174,8 +165,6 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role,
-        branchId: user.branchId,
-        branch: user.branch,
       },
       accessToken,
       refreshToken,
@@ -210,7 +199,6 @@ export class AuthService {
       userId: user.id,
       email: user.email,
       role: user.role,
-      branchId: user.branchId,
     };
 
     const { token: accessToken, jwtId } =
@@ -289,12 +277,13 @@ export class AuthService {
         profileImage: true,
         role: true,
         isActive: true,
-        branchId: true,
-        branch: {
+        supervisorId: true,
+        supervisor: {
           select: {
             id: true,
-            name: true,
-            code: true,
+            firstName: true,
+            lastName: true,
+            email: true,
           },
         },
         createdAt: true,

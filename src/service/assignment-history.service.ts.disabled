@@ -72,6 +72,12 @@ export class AssignmentHistoryService {
         prisma.unionAssignmentHistory.findMany({
           where: assignmentWhere,
           include: {
+            loan: {
+              select: {
+                id: true,
+                loanNumber: true,
+              },
+            },
             oldOfficer: {
               select: {
                 id: true,
@@ -82,6 +88,18 @@ export class AssignmentHistoryService {
               select: {
                 id: true,
                 email: true,
+              },
+            },
+            oldBranch: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            newBranch: {
+              select: {
+                id: true,
+                name: true,
               },
             },
             changedBy: {
@@ -129,7 +147,7 @@ export class AssignmentHistoryService {
         prisma.unionMemberReassignment.findMany({
           where: reassignmentWhere,
           include: {
-            unionMember: {
+            customer: {
               select: {
                 id: true,
                 code: true,
@@ -149,13 +167,13 @@ export class AssignmentHistoryService {
                 email: true,
               },
             },
-            oldUnion: {
+            oldBranch: {
               select: {
                 id: true,
                 name: true,
               },
             },
-            newUnion: {
+            newBranch: {
               select: {
                 id: true,
                 name: true,
@@ -201,7 +219,7 @@ export class AssignmentHistoryService {
             deletedAt: null,
           },
           include: {
-            creditOfficer: {
+            manager: {
               select: {
                 id: true,
                 email: true,

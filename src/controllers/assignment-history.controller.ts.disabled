@@ -25,7 +25,7 @@ export class AssignmentHistoryController {
       const result = await AssignmentHistoryService.getAssignmentHistory(
         filters,
         req.user.role as any,
-        req.user.branchId || undefined,
+        req.user.unionId || undefined,
         req.user.id
       );
 

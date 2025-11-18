@@ -28,11 +28,11 @@ router.get(
   UserActivityController.getUserActivitySummary
 );
 
-// Get branch activity summary (Admin and Branch Manager)
+// Get union activity summary (Admin and Supervisor)
 router.get(
-  "/branch/:branchId/summary",
+  "/union/:unionId/summary",
   requireAdminOrManager,
-  UserActivityController.getBranchActivitySummary
+  UserActivityController.getUnionActivitySummary
 );
 
 // Get system activity summary (Admin only)

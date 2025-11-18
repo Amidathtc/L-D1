@@ -57,13 +57,13 @@ export class UserActivityController {
     }
   }
 
-  static async getBranchActivitySummary(req: Request, res: Response) {
+  static async getUnionActivitySummary(req: Request, res: Response) {
     try {
-      const { branchId } = req.params;
+      const { unionId } = req.params;
       const { period = "month" } = req.query;
 
-      const summary = await UserActivityService.getBranchActivitySummary(
-        branchId,
+      const summary = await UserActivityService.getUnionActivitySummary(
+        unionId,
         period as "day" | "week" | "month"
       );
 

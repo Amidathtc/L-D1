@@ -1,217 +1,182 @@
 import { Role } from "@prisma/client";
 import prisma from "../prismaClient";
-import { PasswordUtil } from "../utils/password.util";
+import * as bcrypt from "bcryptjs";
 
 interface CreateUserData {
   email: string;
-  password: string;
+  firstName: string;
+  lastName: string;
   role: Role;
-  branchId?: string;
-  firstName?: string;
-  lastName?: string;
-  name?: string;
   phone?: string;
   address?: string;
+  password?: string;
+  supervisorId?: string;
   isActive?: boolean;
 }
 
 interface UpdateUserData {
   email?: string;
+  firstName?: string;
+  lastName?: string;
   role?: Role;
-  branchId?: string | null;
+  phone?: string;
+  address?: string;
+  password?: string;
+  supervisorId?: string;
   isActive?: boolean;
-  firstName?: string | null;
-  lastName?: string | null;
-  phone?: string | null;
-  address?: string | null;
-  profileImage?: string | null;
-}
-
-interface BulkUserOperation {
-  userIds: string[];
-  operation:
-    | "activate"
-    | "deactivate"
-    | "changeRole"
-    | "assignBranch"
-    | "unassignBranch";
-  data?: {
-    role?: Role;
-    branchId?: string;
-  };
+  profileImage?: string;
 }
 
 interface GetUsersFilters {
   page?: number;
   limit?: number;
   role?: Role;
-  branchId?: string;
+  supervisorId?: string;
   isActive?: boolean;
   search?: string;
 }
 
-export class UserService {
-  static async createUser(data: CreateUserData, creatorRole: Role) {
-    console.log("UserService.createUser: Creating user with data:", {
-      email: data.email,
-      role: data.role,
-      branchId: data.branchId,
-      creatorRole: creatorRole,
-    });
+interface BulkOperationData {
+  userIds: string[];
+  operation: "activate" | "deactivate" | "changeRole" | "delete";
+  data?: any;
+}
 
-    // Role-based permission validation
-    if (creatorRole === Role.BRANCH_MANAGER && data.role === Role.ADMIN) {
-      throw new Error("Branch managers cannot create admin users");
+export class UserService {
+  /**
+   * Create a new user with role-based validation
+   */
+  static async createUser(data: CreateUserData, creatorRole: Role) {
+    console.log("UserService.createUser: Creating user with email:", data.email);
+
+    // Validate required fields
+    if (!data.email || !data.firstName || !data.lastName || !data.role) {
+      throw new Error("Email, firstName, lastName, and role are required");
     }
 
+    // Normalize email
+    const email = data.email.toLowerCase().trim();
+
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser && !existingUser.deletedAt) {
+      throw new Error("User with this email already exists");
+    }
+
+    // Permission checks
     if (creatorRole === Role.CREDIT_OFFICER) {
       throw new Error("Credit officers cannot create users");
     }
 
-    // Validate email doesn't exist
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
-    });
-
-    if (existingUser) {
-      throw new Error("Email already exists");
+    // Supervisors can only create CREDIT_OFFICER roles
+    if (creatorRole === Role.SUPERVISOR && data.role !== Role.CREDIT_OFFICER) {
+      throw new Error("Supervisors can only create Credit Officers");
     }
 
-    // Validate password
-    const validation = PasswordUtil.validate(data.password);
-    if (!validation.valid) {
-      throw new Error(validation.message);
-    }
-
-    // Branch assignment is optional - users can be created without branches
-    // and assigned to branches later
-    if (data.branchId) {
-      const branch = await prisma.branch.findUnique({
-        where: { id: data.branchId },
+    // If creating a SUPERVISOR or assigning a supervisor
+    if (data.role === Role.SUPERVISOR && data.supervisorId) {
+      // Verify supervisor exists and is ADMIN or SUPERVISOR
+      const supervisor = await prisma.user.findUnique({
+        where: { id: data.supervisorId },
       });
 
-      if (!branch || branch.deletedAt) {
-        throw new Error("Branch not found");
+      if (!supervisor || supervisor.deletedAt) {
+        throw new Error("Assigned supervisor not found");
       }
 
-      // Check if branch manager already exists for this branch
-      if (data.role === Role.BRANCH_MANAGER) {
-        const existingManager = await prisma.user.findFirst({
-          where: {
-            role: Role.BRANCH_MANAGER,
-            branchId: data.branchId,
-            deletedAt: null,
-          },
-        });
-
-        if (existingManager) {
-          throw new Error("Branch already has a manager");
-        }
+      if (supervisor.role !== Role.ADMIN && supervisor.role !== Role.SUPERVISOR) {
+        throw new Error("Supervisor must have ADMIN or SUPERVISOR role");
       }
     }
 
-    const passwordHash = await PasswordUtil.hash(data.password);
+    // If creating a CREDIT_OFFICER and supervisor is provided
+    if (data.role === Role.CREDIT_OFFICER && data.supervisorId) {
+      const supervisor = await prisma.user.findUnique({
+        where: { id: data.supervisorId },
+      });
 
-    // Handle name field - split into firstName and lastName if provided
-    let firstName = data.firstName;
-    let lastName = data.lastName;
+      if (!supervisor || supervisor.deletedAt) {
+        throw new Error("Assigned supervisor not found");
+      }
 
-    if (data.name && !firstName && !lastName) {
-      const nameParts = data.name.trim().split(" ");
-      firstName = nameParts[0] || "";
-      lastName = nameParts.slice(1).join(" ") || "";
+      if (supervisor.role !== Role.ADMIN && supervisor.role !== Role.SUPERVISOR) {
+        throw new Error("Supervisor must have ADMIN or SUPERVISOR role");
+      }
     }
+
+    // Hash password
+    const password = data.password || "DefaultPassword@123";
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
-        email: data.email,
-        passwordHash,
+        email,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
         role: data.role,
-        branchId: data.branchId,
-        firstName: firstName,
-        lastName: lastName,
-        phone: data.phone,
-        address: data.address,
+        passwordHash,
+        phone: data.phone?.trim() || null,
+        address: data.address?.trim() || null,
         isActive: data.isActive !== undefined ? data.isActive : true,
+        supervisorId: data.supervisorId || null,
       },
       select: {
         id: true,
         email: true,
-        role: true,
-        isActive: true,
-        branchId: true,
         firstName: true,
         lastName: true,
+        role: true,
         phone: true,
         address: true,
-        branch: {
+        isActive: true,
+        supervisorId: true,
+        supervisor: {
           select: {
             id: true,
-            name: true,
-            code: true,
+            firstName: true,
+            lastName: true,
+            email: true,
           },
         },
         createdAt: true,
       },
     });
 
+    console.log("UserService.createUser: User created successfully:", user.id);
     return user;
   }
 
+  /**
+   * Get users with role-based filtering
+   */
   static async getUsers(
     filters: GetUsersFilters,
     userRole: Role,
-    userBranchId?: string,
-    userId?: string
+    userSupervisorId: string | undefined,
+    userId: string
   ) {
+    console.log("UserService.getUsers: Fetching users with filters:", {
+      role: filters.role,
+      page: filters.page,
+      limit: filters.limit,
+    });
+
     const page = filters.page || 1;
     const limit = filters.limit || 20;
     const skip = (page - 1) * limit;
 
-    console.log("UserService.getUsers: Request from user:", {
-      userRole,
-      userBranchId,
-      userId,
-      filters,
-    });
+    // Build where clause based on role
+    const where: any = { deletedAt: null };
 
-    const where: any = {
-      deletedAt: null,
-    };
-
-    // Branch managers can only see users from their branch
-    if (userRole === Role.BRANCH_MANAGER && userBranchId) {
-      where.branchId = userBranchId;
-      console.log(
-        "UserService.getUsers: BRANCH_MANAGER filtering by branchId:",
-        userBranchId
-      );
-    }
-    // Credit officers can only see users from their branch
-    else if (userRole === Role.CREDIT_OFFICER && userBranchId) {
-      where.branchId = userBranchId;
-      console.log(
-        "UserService.getUsers: CREDIT_OFFICER filtering by branchId:",
-        userBranchId
-      );
-    }
-    // Admins can see all users
-    else if (userRole === Role.ADMIN) {
-      console.log("UserService.getUsers: ADMIN - no branch filtering applied");
-    }
-
+    // Apply role filtering if provided
     if (filters.role) {
       where.role = filters.role;
     }
 
-    if (filters.branchId) {
-      where.branchId = filters.branchId;
-    }
-
-    if (filters.isActive !== undefined) {
-      where.isActive = filters.isActive;
-    }
-
+    // Apply search filtering
     if (filters.search) {
       where.OR = [
         { email: { contains: filters.search, mode: "insensitive" } },
@@ -220,72 +185,112 @@ export class UserService {
       ];
     }
 
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          isActive: true,
-          branchId: true,
-          branch: {
-            select: {
-              id: true,
-              name: true,
-              code: true,
-            },
-          },
-          createdAt: true,
-          updatedAt: true,
-        },
-        skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.user.count({ where }),
-    ]);
+    // Apply active status filtering
+    if (filters.isActive !== undefined) {
+      where.isActive = filters.isActive;
+    }
 
-    return { users, total, page, limit };
-  }
+    // Permission-based filtering
+    if (userRole === Role.CREDIT_OFFICER) {
+      // Credit officers can only see themselves
+      where.id = userId;
+    } else if (userRole === Role.SUPERVISOR) {
+      // Supervisors can see themselves and their credit officers
+      where.OR = [
+        { id: userId },
+        { supervisorId: userId },
+      ];
+    }
+    // ADMIN can see all users (no additional filtering)
 
-  static async getUserById(id: string, userRole: Role, userBranchId?: string) {
-    const user = await prisma.user.findUnique({
-      where: { id },
+    // Get total count
+    const total = await prisma.user.count({ where });
+
+    // Get paginated users
+    const users = await prisma.user.findMany({
+      where,
       select: {
         id: true,
         email: true,
         firstName: true,
         lastName: true,
         role: true,
+        phone: true,
+        address: true,
         isActive: true,
-        branchId: true,
-        branch: {
+        supervisorId: true,
+        supervisor: {
           select: {
             id: true,
-            name: true,
-            code: true,
+            firstName: true,
+            lastName: true,
+            email: true,
           },
         },
-        managedBranch: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        _count: {
-          select: {
-            createdLoans: true,
-            assignedLoans: true,
-            repayments: true,
-          },
-        },
+        loginCount: true,
+        lastLoginAt: true,
         createdAt: true,
         updatedAt: true,
+      },
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return {
+      users,
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Get a single user by ID with permission checking
+   */
+  static async getUserById(
+    userId: string,
+    requesterRole: Role,
+    requesterSupervisorId: string | undefined,
+    requesterId?: string
+  ) {
+    console.log("UserService.getUserById: Fetching user:", userId);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        phone: true,
+        address: true,
+        profileImage: true,
+        isActive: true,
+        supervisorId: true,
         deletedAt: true,
+        supervisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        creditOfficers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        loginCount: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -293,629 +298,458 @@ export class UserService {
       throw new Error("User not found");
     }
 
-    // Role-based access restrictions
-    if (userRole === Role.ADMIN) {
-      // ADMIN can view any user
-      console.log("ADMIN user - allowing access to user:", id);
-    } else if (userRole === Role.BRANCH_MANAGER && userBranchId) {
-      // Branch managers can view users from their branch or unassigned users
-      if (user.branchId && user.branchId !== userBranchId) {
-        throw new Error("You can only view users from your own branch");
+    // Permission check
+    if (requesterRole === Role.CREDIT_OFFICER) {
+      // Credit officers can only see themselves
+      if (userId !== requesterId) {
+        throw new Error("You can only view your own profile");
       }
-      console.log(
-        "BRANCH_MANAGER user - allowing access to user in branch:",
-        userBranchId
-      );
-    } else if (userRole === Role.CREDIT_OFFICER && userBranchId) {
-      // Credit officers can view users from their branch or unassigned users
-      if (user.branchId && user.branchId !== userBranchId) {
-        throw new Error("You can only view users from your own branch");
+    } else if (requesterRole === Role.SUPERVISOR) {
+      // Supervisors can see themselves and their credit officers
+      if (userId !== requesterId && user.supervisorId !== requesterId) {
+        throw new Error("You can only view your own profile or your credit officers");
       }
-      console.log(
-        "CREDIT_OFFICER user - allowing access to user in branch:",
-        userBranchId
-      );
-    } else {
-      // Unknown role - deny access
-      throw new Error("You do not have permission to view this user");
     }
+    // ADMIN can see any user
 
     return user;
   }
 
+  /**
+   * Update a user with role-based validation
+   */
   static async updateUser(
-    id: string,
+    userId: string,
     data: UpdateUserData,
     updaterId: string,
     updaterRole: Role
   ) {
-    console.log(`Updating user ${id} with data:`, data);
+    console.log("UserService.updateUser: Updating user:", userId);
 
-    const user = await prisma.user.findUnique({
-      where: { id },
+    // Get the user being updated
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, supervisorId: true, deletedAt: true },
     });
 
-    if (!user || user.deletedAt) {
+    if (!targetUser || targetUser.deletedAt) {
       throw new Error("User not found");
     }
 
-    console.log(`Current user data:`, {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      branchId: user.branchId,
-    });
+    // Permission checks
+    if (updaterRole === Role.CREDIT_OFFICER) {
+      // Credit officers can only update themselves
+      if (userId !== updaterId) {
+        throw new Error("You can only update your own profile");
+      }
+      // Credit officers can only update certain fields
+      const allowedFields = ["firstName", "lastName", "phone", "address", "profileImage"];
+      const attemptedFields = Object.keys(data);
+      const disallowedFields = attemptedFields.filter((f) => !allowedFields.includes(f));
 
-    const isSelfUpdate = id === updaterId;
+      if (disallowedFields.length > 0) {
+        throw new Error(`Credit officers cannot update: ${disallowedFields.join(", ")}`);
+      }
+    } else if (updaterRole === Role.SUPERVISOR) {
+      // Supervisors can update themselves and their credit officers
+      if (userId !== updaterId && targetUser.supervisorId !== updaterId) {
+        throw new Error("You can only update your own profile or your credit officers");
+      }
 
-    if (updaterRole !== Role.ADMIN && !isSelfUpdate) {
-      throw new Error("You do not have permission to update this user");
+      // Supervisors cannot change role
+      if (data.role && data.role !== targetUser.role) {
+        throw new Error("Supervisors cannot change user roles");
+      }
     }
 
-    if (isSelfUpdate && data.isActive === false) {
-      throw new Error("You cannot deactivate your own account");
+    // Prepare update data
+    const updateData: any = {};
+
+    if (data.email !== undefined) {
+      const email = data.email.toLowerCase().trim();
+      // Check if email is already taken by another user
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+      });
+      if (existingUser && existingUser.id !== userId && !existingUser.deletedAt) {
+        throw new Error("This email is already in use");
+      }
+      updateData.email = email;
     }
-
-    const sanitizeNullable = (value?: string | null) => {
-      if (value === undefined) return undefined;
-      if (value === null) return null;
-      const trimmed = value.trim();
-      return trimmed.length > 0 ? trimmed : null;
-    };
-
-    const updatePayload: UpdateUserData = {};
 
     if (data.firstName !== undefined) {
-      updatePayload.firstName = sanitizeNullable(data.firstName);
+      updateData.firstName = data.firstName.trim();
     }
 
     if (data.lastName !== undefined) {
-      updatePayload.lastName = sanitizeNullable(data.lastName);
+      updateData.lastName = data.lastName.trim();
     }
 
     if (data.phone !== undefined) {
-      updatePayload.phone = sanitizeNullable(data.phone);
+      updateData.phone = data.phone ? data.phone.trim() : null;
     }
 
     if (data.address !== undefined) {
-      updatePayload.address = sanitizeNullable(data.address);
+      updateData.address = data.address ? data.address.trim() : null;
     }
 
     if (data.profileImage !== undefined) {
-      updatePayload.profileImage = data.profileImage || null;
+      updateData.profileImage = data.profileImage || null;
     }
 
-    let managedBranch: { id: string; name: string; code: string } | null = null;
-
-    if (updaterRole === Role.ADMIN) {
-      if (data.email !== undefined) {
-        const targetEmail = data.email.toLowerCase();
-        if (targetEmail !== user.email) {
-          const existingUser = await prisma.user.findUnique({
-            where: { email: targetEmail },
-          });
-
-          if (existingUser) {
-            throw new Error("Email already exists");
-          }
-        }
-        updatePayload.email = targetEmail;
-      }
-
-      if (data.branchId !== undefined) {
-        if (data.branchId) {
-          const branch = await prisma.branch.findUnique({
-            where: { id: data.branchId },
-          });
-
-          if (!branch || branch.deletedAt || !branch.isActive) {
-            throw new Error("Invalid or inactive branch");
-          }
-        }
-
-        updatePayload.branchId = data.branchId;
-
-        if (data.branchId === null && user.branchId) {
-          managedBranch = await prisma.branch.findFirst({
-            where: {
-              managerId: id,
-              deletedAt: null,
-            },
-            select: { id: true, name: true, code: true },
-          });
-        }
-      }
-
-      if (data.role !== undefined) {
-        if (data.role !== Role.ADMIN) {
-          const targetBranchId =
-            data.branchId !== undefined ? data.branchId : user.branchId;
-
-          if (!targetBranchId) {
-            throw new Error(
-              "Branch Manager and Credit Officer must be assigned to a branch"
-            );
-          }
-        }
-
-        updatePayload.role = data.role;
-      }
-
-      if (data.isActive !== undefined) {
-        updatePayload.isActive = data.isActive;
-      }
+    if (data.role !== undefined && updaterRole === Role.ADMIN) {
+      updateData.role = data.role;
     }
 
-    if (Object.keys(updatePayload).length === 0) {
-      console.log("No updatable fields provided; returning current user data");
-      return prisma.user.findUniqueOrThrow({
-        where: { id },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
-          address: true,
-          profileImage: true,
-          role: true,
-          isActive: true,
-          branchId: true,
-          branch: {
-            select: {
-              id: true,
-              name: true,
-              code: true,
-            },
-          },
-          updatedAt: true,
-          createdAt: true,
-        },
-      });
+    if (data.isActive !== undefined && updaterRole === Role.ADMIN) {
+      updateData.isActive = data.isActive;
     }
 
-    const updatedUser = await prisma.$transaction(async (tx: any) => {
-      const user = await tx.user.update({
-        where: { id },
-        data: updatePayload,
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
-          address: true,
-          profileImage: true,
-          role: true,
-          isActive: true,
-          branchId: true,
-          branch: {
-            select: {
-              id: true,
-              name: true,
-              code: true,
-            },
-          },
-          updatedAt: true,
-          createdAt: true,
-        },
-      });
-
-      if (managedBranch) {
-        await tx.branch.update({
-          where: { id: managedBranch.id },
-          data: { managerId: null },
+    // Handle supervisor assignment (ADMIN only)
+    if (data.supervisorId !== undefined && updaterRole === Role.ADMIN) {
+      if (data.supervisorId === null) {
+        updateData.supervisorId = null;
+      } else {
+        const supervisor = await prisma.user.findUnique({
+          where: { id: data.supervisorId },
         });
-        console.log(
-          `Unassigned user ${id} as manager from branch ${managedBranch.name} (${managedBranch.code})`
-        );
+
+        if (!supervisor || supervisor.deletedAt) {
+          throw new Error("Assigned supervisor not found");
+        }
+
+        if (supervisor.role !== Role.ADMIN && supervisor.role !== Role.SUPERVISOR) {
+          throw new Error("Supervisor must have ADMIN or SUPERVISOR role");
+        }
+
+        updateData.supervisorId = data.supervisorId;
       }
+    }
 
-      return user;
+    // Handle password change (ADMIN only via this method)
+    if (data.password !== undefined && updaterRole === Role.ADMIN) {
+      const passwordHash = await bcrypt.hash(data.password, 10);
+      updateData.passwordHash = passwordHash;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        phone: true,
+        address: true,
+        profileImage: true,
+        isActive: true,
+        supervisorId: true,
+        supervisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
-    console.log(`User updated successfully:`, {
-      id: updatedUser.id,
-      email: updatedUser.email,
-      role: updatedUser.role,
-      branchId: updatedUser.branchId,
-      branch: updatedUser.branch,
-    });
-
+    console.log("UserService.updateUser: User updated successfully:", userId);
     return updatedUser;
   }
 
+  /**
+   * Soft delete a user (mark as deleted)
+   */
   static async deleteUser(
-    id: string,
+    userId: string,
     deleterId: string,
     deleterRole: Role,
-    deleterBranchId?: string
+    deleterSupervisorId: string | undefined
   ) {
+    console.log("UserService.deleteUser: Deleting user:", userId);
+
+    if (deleterRole !== Role.ADMIN) {
+      throw new Error("Only admins can delete users");
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id },
-      include: { branch: true },
+      where: { id: userId },
+      select: { id: true, deletedAt: true },
     });
 
-    if (!user || user.deletedAt) {
+    if (!user) {
       throw new Error("User not found");
     }
 
-    // Prevent users from deleting themselves
-    if (id === deleterId) {
-      throw new Error("You cannot delete your own account");
+    if (user.deletedAt) {
+      throw new Error("User is already deleted");
     }
 
-    // Role-based deletion restrictions
-    if (deleterRole === Role.CREDIT_OFFICER) {
-      throw new Error("Credit officers cannot delete users");
-    }
-
-    if (deleterRole === Role.BRANCH_MANAGER) {
-      // Branch managers can only delete users from their branch
-      if (user.branchId !== deleterBranchId) {
-        throw new Error("You can only delete users from your own branch");
-      }
-      // Branch managers cannot delete other admins
-      if (user.role === Role.ADMIN) {
-        throw new Error("Branch managers cannot delete admin users");
-      }
-    }
-
-    // Admins can delete anyone (including other admins)
-    // No additional restrictions for admins
-
-    // Soft delete
+    // Soft delete: set deletedAt timestamp
     await prisma.user.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        isActive: false,
-      },
+      where: { id: userId },
+      data: { deletedAt: new Date() },
     });
 
-    // Revoke all sessions
-    await prisma.staffSession.updateMany({
-      where: {
-        userId: id,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
+    console.log("UserService.deleteUser: User soft-deleted successfully:", userId);
   }
 
-  static async resetUserPassword(id: string, newPassword: string) {
+  /**
+   * Reset user password (ADMIN only)
+   */
+  static async resetUserPassword(userId: string, newPassword: string) {
+    console.log("UserService.resetUserPassword: Resetting password for user:", userId);
+
+    if (!newPassword || newPassword.trim().length === 0) {
+      throw new Error("New password is required");
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id },
+      where: { id: userId },
     });
 
     if (!user || user.deletedAt) {
       throw new Error("User not found");
     }
 
-    const validation = PasswordUtil.validate(newPassword);
-    if (!validation.valid) {
-      throw new Error(validation.message);
-    }
-
-    const passwordHash = await PasswordUtil.hash(newPassword);
+    const passwordHash = await bcrypt.hash(newPassword, 10);
 
     await prisma.user.update({
-      where: { id },
+      where: { id: userId },
       data: { passwordHash },
     });
 
-    // Revoke all existing sessions
-    await prisma.staffSession.updateMany({
-      where: {
-        userId: id,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
+    console.log("UserService.resetUserPassword: Password reset successfully");
   }
 
+  /**
+   * Bulk operations on users (ADMIN only)
+   */
   static async bulkUserOperation(
-    operation: BulkUserOperation,
+    operationData: BulkOperationData,
     operatorId: string
   ) {
-    try {
-      const { userIds, operation: op, data } = operation;
+    console.log("UserService.bulkUserOperation: Performing bulk operation:", {
+      operation: operationData.operation,
+      userCount: operationData.userIds.length,
+    });
 
-      if (!userIds || userIds.length === 0) {
-        throw new Error("No users selected for operation");
-      }
+    // Verify operator is admin
+    const operator = await prisma.user.findUnique({
+      where: { id: operatorId },
+    });
 
-      // Validate operator permissions
-      const operator = await prisma.user.findUnique({
-        where: { id: operatorId },
-        select: { role: true },
-      });
-
-      if (!operator || operator.role !== "ADMIN") {
-        throw new Error("Only admins can perform bulk operations");
-      }
-
-      // Validate all users exist
-      const users = await prisma.user.findMany({
-        where: {
-          id: { in: userIds },
-          deletedAt: null,
-        },
-        select: { id: true, email: true, role: true },
-      });
-
-      if (users.length !== userIds.length) {
-        throw new Error("Some users not found");
-      }
-
-      let updateData: any = {};
-      let result: any = {};
-
-      switch (op) {
-        case "activate":
-          updateData = { isActive: true };
-          result = await prisma.user.updateMany({
-            where: { id: { in: userIds } },
-            data: updateData,
-          });
-          break;
-
-        case "deactivate":
-          updateData = { isActive: false };
-          result = await prisma.user.updateMany({
-            where: { id: { in: userIds } },
-            data: updateData,
-          });
-          break;
-
-        case "changeRole":
-          if (!data?.role) {
-            throw new Error("Role is required for changeRole operation");
-          }
-          updateData = { role: data.role };
-          result = await prisma.user.updateMany({
-            where: { id: { in: userIds } },
-            data: updateData,
-          });
-          break;
-
-        case "assignBranch":
-          if (!data?.branchId) {
-            throw new Error("Branch ID is required for assignBranch operation");
-          }
-          // Validate branch exists
-          const branch = await prisma.branch.findUnique({
-            where: { id: data.branchId },
-          });
-          if (!branch) {
-            throw new Error("Branch not found");
-          }
-          updateData = { branchId: data.branchId };
-          result = await prisma.user.updateMany({
-            where: { id: { in: userIds } },
-            data: updateData,
-          });
-          break;
-
-        case "unassignBranch":
-          updateData = { branchId: null };
-          result = await prisma.user.updateMany({
-            where: { id: { in: userIds } },
-            data: updateData,
-          });
-          break;
-
-        default:
-          throw new Error("Invalid operation");
-      }
-
-      return {
-        success: true,
-        operation: op,
-        affectedUsers: result.count,
-        userIds,
-      };
-    } catch (error: any) {
-      throw new Error(error.message || "Bulk operation failed");
+    if (!operator || operator.role !== Role.ADMIN) {
+      throw new Error("Only admins can perform bulk operations");
     }
-  }
 
-  static async exportUsers(
-    filters: GetUsersFilters,
-    userRole: Role,
-    userBranchId?: string,
-    userId?: string
-  ) {
-    try {
-      console.log("UserService.exportUsers: Request from user:", {
-        userRole,
-        userBranchId,
-        userId,
-        filters,
-      });
+    const { userIds, operation, data } = operationData;
 
-      const where: any = {
+    if (!userIds || userIds.length === 0) {
+      throw new Error("No users specified for bulk operation");
+    }
+
+    let updateData: any = {};
+    let affectedCount = 0;
+
+    switch (operation) {
+      case "activate":
+        updateData = { isActive: true };
+        break;
+
+      case "deactivate":
+        updateData = { isActive: false };
+        break;
+
+      case "changeRole":
+        if (!data?.role) {
+          throw new Error("Role is required for changeRole operation");
+        }
+        updateData = { role: data.role };
+        break;
+
+      case "delete":
+        updateData = { deletedAt: new Date() };
+        break;
+
+      default:
+        throw new Error("Invalid bulk operation");
+    }
+
+    // Execute bulk update
+    const result = await prisma.user.updateMany({
+      where: {
+        id: { in: userIds },
         deletedAt: null,
-      };
+      },
+      data: updateData,
+    });
 
-      // Role-based filtering - same logic as getUsers
-      if (userRole === Role.BRANCH_MANAGER && userBranchId) {
-        where.branchId = userBranchId;
-        console.log(
-          "UserService.exportUsers: BRANCH_MANAGER filtering by branchId:",
-          userBranchId
-        );
-      } else if (userRole === Role.CREDIT_OFFICER && userBranchId) {
-        where.branchId = userBranchId;
-        console.log(
-          "UserService.exportUsers: CREDIT_OFFICER filtering by branchId:",
-          userBranchId
-        );
-      } else if (userRole === Role.ADMIN) {
-        console.log(
-          "UserService.exportUsers: ADMIN - no branch filtering applied"
-        );
-      }
+    affectedCount = result.count;
 
-      if (filters.role) {
-        where.role = filters.role;
-      }
+    console.log(
+      `UserService.bulkUserOperation: Bulk operation completed, affected: ${affectedCount}`
+    );
 
-      if (filters.branchId) {
-        where.branchId = filters.branchId;
-      }
-
-      if (filters.isActive !== undefined) {
-        where.isActive = filters.isActive;
-      }
-
-      if (filters.search) {
-        where.OR = [
-          {
-            email: {
-              contains: filters.search,
-              mode: "insensitive",
-            },
-          },
-          {
-            firstName: {
-              contains: filters.search,
-              mode: "insensitive",
-            },
-          },
-          {
-            lastName: {
-              contains: filters.search,
-              mode: "insensitive",
-            },
-          },
-        ];
-      }
-
-      const users = await prisma.user.findMany({
-        where,
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
-          address: true,
-          role: true,
-          isActive: true,
-          branchId: true,
-          lastLoginAt: true,
-          loginCount: true,
-          createdAt: true,
-          branch: {
-            select: {
-              id: true,
-              name: true,
-              code: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-
-      return users;
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to export users");
-    }
+    return {
+      operation,
+      requestedCount: userIds.length,
+      affectedCount,
+      message: `${affectedCount} user(s) ${operation} successfully`,
+    };
   }
 
-  static async importUsers(usersData: any[], importerId: string) {
-    try {
-      // Validate importer permissions
-      const importer = await prisma.user.findUnique({
-        where: { id: importerId },
-        select: { role: true },
-      });
+  /**
+   * Export users (with role-based filtering)
+   */
+  static async exportUsers(
+    filters: any,
+    userRole: Role,
+    userSupervisorId: string | undefined,
+    userId: string
+  ) {
+    console.log("UserService.exportUsers: Exporting users");
 
-      if (!importer || importer.role !== "ADMIN") {
-        throw new Error("Only admins can import users");
-      }
+    const where: any = { deletedAt: null };
 
-      const results = {
-        success: 0,
-        failed: 0,
-        errors: [] as string[],
-      };
+    // Apply role filtering if provided
+    if (filters.role) {
+      where.role = filters.role;
+    }
 
-      for (const userData of usersData) {
-        try {
-          // Validate required fields
-          if (!userData.email || !userData.password || !userData.role) {
-            results.failed++;
-            results.errors.push(
-              `User ${userData.email || "unknown"}: Missing required fields`
-            );
-            continue;
-          }
+    // Apply search filtering
+    if (filters.search) {
+      where.OR = [
+        { email: { contains: filters.search, mode: "insensitive" } },
+        { firstName: { contains: filters.search, mode: "insensitive" } },
+        { lastName: { contains: filters.search, mode: "insensitive" } },
+      ];
+    }
 
-          // Check if user already exists
-          const existingUser = await prisma.user.findUnique({
-            where: { email: userData.email },
+    // Apply active status filtering
+    if (filters.isActive !== undefined) {
+      where.isActive = filters.isActive === "true" || filters.isActive === true;
+    }
+
+    // Permission-based filtering
+    if (userRole === Role.CREDIT_OFFICER) {
+      where.id = userId;
+    } else if (userRole === Role.SUPERVISOR) {
+      where.OR = [
+        { id: userId },
+        { supervisorId: userId },
+      ];
+    }
+    // ADMIN can export all users
+
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        phone: true,
+        address: true,
+        isActive: true,
+        supervisorId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return users;
+  }
+
+  /**
+   * Import users (bulk create/update)
+   */
+  static async importUsers(users: CreateUserData[], importerId: string) {
+    console.log("UserService.importUsers: Importing users, count:", users.length);
+
+    // Verify importer is admin
+    const importer = await prisma.user.findUnique({
+      where: { id: importerId },
+    });
+
+    if (!importer || importer.role !== Role.ADMIN) {
+      throw new Error("Only admins can import users");
+    }
+
+    if (!Array.isArray(users) || users.length === 0) {
+      throw new Error("No users provided for import");
+    }
+
+    const results = {
+      created: 0,
+      updated: 0,
+      failed: 0,
+      errors: [] as any[],
+    };
+
+    for (const userData of users) {
+      try {
+        const email = userData.email.toLowerCase().trim();
+
+        // Check if user exists
+        const existingUser = await prisma.user.findUnique({
+          where: { email },
+        });
+
+        if (existingUser && !existingUser.deletedAt) {
+          // Update existing user
+          await prisma.user.update({
+            where: { email },
+            data: {
+              firstName: userData.firstName?.trim(),
+              lastName: userData.lastName?.trim(),
+              role: userData.role,
+              phone: userData.phone?.trim() || null,
+              address: userData.address?.trim() || null,
+              isActive: userData.isActive !== undefined ? userData.isActive : true,
+              supervisorId: userData.supervisorId || null,
+            },
           });
+          results.updated++;
+        } else {
+          // Create new user
+          const password = userData.password || "DefaultPassword@123";
+          const passwordHash = await bcrypt.hash(password, 10);
 
-          if (existingUser) {
-            results.failed++;
-            results.errors.push(`User ${userData.email}: Email already exists`);
-            continue;
-          }
-
-          // Validate password
-          const validation = PasswordUtil.validate(userData.password);
-          if (!validation.valid) {
-            results.failed++;
-            results.errors.push(
-              `User ${userData.email}: ${validation.message}`
-            );
-            continue;
-          }
-
-          // Validate branch if provided
-          if (userData.branchId) {
-            const branch = await prisma.branch.findUnique({
-              where: { id: userData.branchId },
-            });
-            if (!branch) {
-              results.failed++;
-              results.errors.push(`User ${userData.email}: Branch not found`);
-              continue;
-            }
-          }
-
-          // Create user
           await prisma.user.create({
             data: {
-              email: userData.email,
-              passwordHash: await PasswordUtil.hash(userData.password),
+              email,
+              firstName: userData.firstName?.trim(),
+              lastName: userData.lastName?.trim(),
               role: userData.role,
-              branchId: userData.branchId,
-              firstName: userData.firstName,
-              lastName: userData.lastName,
-              phone: userData.phone,
-              address: userData.address,
+              passwordHash,
+              phone: userData.phone?.trim() || null,
+              address: userData.address?.trim() || null,
+              isActive: userData.isActive !== undefined ? userData.isActive : true,
+              supervisorId: userData.supervisorId || null,
             },
           });
-
-          results.success++;
-        } catch (error: any) {
-          results.failed++;
-          results.errors.push(
-            `User ${userData.email || "unknown"}: ${error.message}`
-          );
+          results.created++;
         }
+      } catch (error: any) {
+        results.failed++;
+        results.errors.push({
+          email: userData.email,
+          error: error.message,
+        });
+        console.error("UserService.importUsers: Error importing user:", error);
       }
-
-      return results;
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to import users");
     }
+
+    console.log("UserService.importUsers: Import completed:", results);
+    return results;
   }
 }

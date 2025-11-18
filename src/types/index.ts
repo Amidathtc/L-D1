@@ -22,7 +22,8 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   role: Role;
-  branchId: string | null;
+  supervisorId: string | null;
+  unionId?: string;
 }
 
 declare global {
