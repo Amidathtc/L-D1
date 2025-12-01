@@ -680,6 +680,81 @@ export class UnionMemberService {
     console.log(`Union member deleted: ${id}`);
   }
 
+  static async toggleVerification(
+    memberId: string,
+    userId: string,
+    userRole: Role
+  ) {
+    console.log(
+      `UnionMemberService.toggleVerification: Toggling verification for member ${memberId}`
+    );
+
+    const member = await prisma.unionMember.findUnique({
+      where: { id: memberId },
+      include: { union: true },
+    });
+
+    if (!member || member.deletedAt) {
+      throw new Error("Union member not found");
+    }
+
+    // Check permission - only ADMIN and SUPERVISOR can toggle verification
+    if (userRole === Role.SUPERVISOR) {
+      const creditOfficer = await prisma.user.findUnique({
+        where: { id: member.union.creditOfficerId },
+      });
+
+      if (!creditOfficer || creditOfficer.supervisorId !== userId) {
+        throw new Error(
+          "You can only toggle verification for members under your supervision"
+        );
+      }
+    } else if (userRole !== Role.ADMIN) {
+      throw new Error(
+        "Only admins and supervisors can toggle verification status"
+      );
+    }
+
+    // Toggle the isVerified status
+    const updatedMember = await prisma.unionMember.update({
+      where: { id: memberId },
+      data: { isVerified: !member.isVerified },
+      select: {
+        id: true,
+        code: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        isVerified: true,
+        unionId: true,
+        union: {
+          select: {
+            id: true,
+            name: true,
+            location: true,
+          },
+        },
+        currentOfficerId: true,
+        currentOfficer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        updatedAt: true,
+      },
+    });
+
+    console.log(
+      `Union member verification toggled: ${memberId}, now isVerified: ${updatedMember.isVerified}`
+    );
+
+    return updatedMember;
+  }
+
   static async reassignUnionMember(
     memberId: string,
     data: ReassignUnionMemberData,

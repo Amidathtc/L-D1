@@ -16,12 +16,10 @@ export class UnionMemberController {
         message: exists ? "Email already exists" : "Email is unique",
       });
     } catch (error: any) {
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: error.message || "Error checking email",
-        });
+      res.status(500).json({
+        success: false,
+        message: error.message || "Error checking email",
+      });
     }
   }
   static async createUnionMember(req: Request, res: Response) {
@@ -281,6 +279,42 @@ export class UnionMemberController {
       res.status(statusCode).json({
         success: false,
         message: error.message || "Failed to delete union member",
+      });
+    }
+  }
+
+  static async toggleVerification(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+      const userRole = req.user?.role;
+
+      if (!userId || !userRole) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const member = await UnionMemberService.toggleVerification(
+        id,
+        userId,
+        userRole
+      );
+
+      res.json({
+        success: true,
+        message: `Union member ${
+          member.isVerified ? "approved" : "set to pending"
+        }`,
+        data: member,
+      });
+    } catch (error: any) {
+      console.error("UnionMemberController.toggleVerification error:", error);
+      const statusCode = error.message.includes("not found") ? 404 : 400;
+      res.status(statusCode).json({
+        success: false,
+        message: error.message || "Failed to toggle verification",
       });
     }
   }

@@ -36,6 +36,13 @@ router.delete(
   UnionMemberController.deleteUnionMember
 );
 
+// Toggle member verification/approval status (admin, supervisor)
+router.patch(
+  "/:id/toggle-verification",
+  requireRole(Role.ADMIN, Role.SUPERVISOR),
+  UnionMemberController.toggleVerification
+);
+
 // Reassign union member to another union (admin only)
 router.post(
   "/:id/reassign",
