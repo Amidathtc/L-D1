@@ -57,6 +57,12 @@ interface ReassignUnionMemberData {
 }
 
 export class UnionMemberService {
+  static async emailExists(email: string): Promise<boolean> {
+    const member = await prisma.unionMember.findFirst({
+      where: { email, deletedAt: null },
+    });
+    return !!member;
+  }
   static async createUnionMember(
     data: CreateUnionMemberData,
     creatorId: string,
@@ -110,9 +116,7 @@ export class UnionMemberService {
       }
 
       if (officer.role === Role.ADMIN) {
-        throw new Error(
-          "Admin cannot be assigned as union member officer"
-        );
+        throw new Error("Admin cannot be assigned as union member officer");
       }
 
       // Officer must match the union's credit officer
@@ -327,11 +331,7 @@ export class UnionMemberService {
     return { members, total, page, limit };
   }
 
-  static async getUnionMemberById(
-    id: string,
-    userRole: Role,
-    userId?: string
-  ) {
+  static async getUnionMemberById(id: string, userRole: Role, userId?: string) {
     const member = await prisma.unionMember.findUnique({
       where: { id },
       select: {
@@ -401,16 +401,12 @@ export class UnionMemberService {
       console.log("ADMIN - allowing access to member:", id);
     } else if (userRole === Role.CREDIT_OFFICER && userId) {
       if (member.union.creditOfficerId !== userId) {
-        throw new Error(
-          "You can only view members from your assigned unions"
-        );
+        throw new Error("You can only view members from your assigned unions");
       }
       console.log("CREDIT_OFFICER - allowing access to member in own union");
     } else if (userRole === Role.SUPERVISOR && userId) {
       if (member.union.creditOfficer.supervisorId !== userId) {
-        throw new Error(
-          "You can only view members under your supervision"
-        );
+        throw new Error("You can only view members under your supervision");
       }
       console.log("SUPERVISOR - allowing access to supervised member");
     } else {
@@ -453,9 +449,7 @@ export class UnionMemberService {
       });
 
       if (!creditOfficer || creditOfficer.supervisorId !== updaterId) {
-        throw new Error(
-          "You can only update members under your supervision"
-        );
+        throw new Error("You can only update members under your supervision");
       }
     } else if (updaterRole !== Role.ADMIN) {
       throw new Error("Insufficient permissions");
@@ -656,9 +650,7 @@ export class UnionMemberService {
       });
 
       if (!creditOfficer || creditOfficer.supervisorId !== deleterId) {
-        throw new Error(
-          "You can only delete members under your supervision"
-        );
+        throw new Error("You can only delete members under your supervision");
       }
     } else if (deleterRole !== Role.ADMIN) {
       throw new Error("Insufficient permissions");

@@ -2,6 +2,28 @@ import { Request, Response } from "express";
 import { UnionMemberService } from "../service/union-member.service";
 
 export class UnionMemberController {
+  static async checkEmailUnique(req: Request, res: Response) {
+    try {
+      const email = (req.query.email as string)?.toLowerCase().trim();
+      if (!email) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Email is required" });
+      }
+      const exists = await UnionMemberService.emailExists(email);
+      res.json({
+        success: !exists,
+        message: exists ? "Email already exists" : "Email is unique",
+      });
+    } catch (error: any) {
+      res
+        .status(500)
+        .json({
+          success: false,
+          message: error.message || "Error checking email",
+        });
+    }
+  }
   static async createUnionMember(req: Request, res: Response) {
     try {
       const {
@@ -82,9 +104,7 @@ export class UnionMemberController {
   static async getUnionMembers(req: Request, res: Response) {
     try {
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
-      const limit = req.query.limit
-        ? parseInt(req.query.limit as string)
-        : 20;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
       const unionId = req.query.unionId as string;
       const currentOfficerId = req.query.currentOfficerId as string;
       const search = req.query.search as string;
@@ -299,10 +319,7 @@ export class UnionMemberController {
         data: member,
       });
     } catch (error: any) {
-      console.error(
-        "UnionMemberController.reassignUnionMember error:",
-        error
-      );
+      console.error("UnionMemberController.reassignUnionMember error:", error);
       const statusCode = error.message.includes("not found") ? 404 : 400;
       res.status(statusCode).json({
         success: false,

@@ -46,4 +46,7 @@ router.post(
 // Export union members (all roles)
 router.get("/export/csv", UnionMemberController.exportUnionMembers);
 
+// Check email uniqueness for union members
+router.get("/check-email", UnionMemberController.checkEmailUnique);
+
 export default router;
