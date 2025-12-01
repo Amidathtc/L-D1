@@ -1,9 +1,10 @@
 services:
   - type: web
     name: lms-backend
-    env: node
+    runtime: node
     buildCommand: npm run render-build-safe
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,8 +16,22 @@ services:
         sync: false
       - key: JWT_REFRESH_SECRET
         sync: false
+      - key: JWT_EXPIRES_IN
+        value: "7d"
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: "30d"
       - key: CORS_ORIGIN
         sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: MAX_FILE_SIZE
+        value: "5242880"
+      - key: UPLOAD_DIR
+        value: "/var/data/uploads"
     disk:
       name: document-storage
       mountPath: /var/data
