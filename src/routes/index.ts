@@ -13,6 +13,7 @@ import auditLogRoutes from "./auditLog.routes";
 import settingsRoutes from "./settings.routes";
 import userActivityRoutes from "./user-activity.routes";
 import notesRoutes from "./notes.routes";
+import supervisorReportsRoutes from "./supervisor-reports.routes";
 // import assignmentHistoryRoutes from "./assignment-history.routes";
 import healthRoutes from "./health.routes";
 import path from "path";
@@ -58,6 +59,7 @@ router.use("/audit-logs", auditLogRoutes);
 router.use("/settings", settingsRoutes);
 router.use("/user-activity", userActivityRoutes);
 router.use("/notes", notesRoutes);
+router.use("/supervisor-reports", supervisorReportsRoutes);
 // router.use("/assignment-history", assignmentHistoryRoutes);
 router.use("/", healthRoutes);
 

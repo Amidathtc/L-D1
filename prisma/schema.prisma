@@ -125,6 +125,9 @@ model User {
   loginHistory UserLoginHistory[]
   notes        UserNote[]
   createdNotes UserNote[] @relation("NoteCreatedBy")
+  
+  // Supervisor report sessions
+  reportSessions ReportSession[] @relation("SupervisorReports")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -549,6 +552,54 @@ model UserNote {
   @@index([category])
   @@index([createdAt])
   @@index([createdByUserId])
+}
+
+// ---------- Supervisor Reports ----------
+
+enum ReportType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  CUSTOM
+}
+
+model ReportSession {
+  id              String     @id @default(cuid())
+  supervisorId    String
+  supervisor      User       @relation("SupervisorReports", fields: [supervisorId], references: [id])
+  
+  reportType      ReportType @default(CUSTOM)
+  title           String?
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  // Cached metrics at report generation time
+  totalOfficers   Int        @default(0)
+  totalUnions     Int        @default(0)
+  totalMembers    Int        @default(0)
+  totalLoans      Int        @default(0)
+  activeLoans     Int        @default(0)
+  completedLoans  Int        @default(0)
+  defaultedLoans  Int        @default(0)
+  
+  totalDisbursed  Decimal    @default(0) @db.Decimal(14, 2)
+  totalRepaid     Decimal    @default(0) @db.Decimal(14, 2)
+  totalOutstanding Decimal   @default(0) @db.Decimal(14, 2)
+  collectionRate  Decimal    @default(0) @db.Decimal(5, 2)
+  
+  // Full report data snapshot
+  reportData      Json?
+  
+  // Officer performance breakdown
+  officerMetrics  Json?
+  
+  generatedAt     DateTime   @default(now())
+  
+  @@index([supervisorId])
+  @@index([generatedAt])
+  @@index([reportType])
+  @@index([periodStart, periodEnd])
 }
 
 // [DELETED] BranchTransfer model removed
