@@ -31,18 +31,19 @@ router.delete(
   DocumentController.deleteDocumentType
 );
 
+// Union member document routes
 router.post(
-  "/customer/:customerId",
+  "/union-member/:unionMemberId",
   requireStaff,
   upload.single("file"),
-  auditLog("CUSTOMER_DOCUMENT_UPLOADED", "CustomerDocument"),
-  DocumentController.uploadCustomerDocument
+  auditLog("UNION_MEMBER_DOCUMENT_UPLOADED", "UnionMemberDocument"),
+  DocumentController.uploadUnionMemberDocument
 );
 
 router.get(
-  "/customer/:customerId",
+  "/union-member/:unionMemberId",
   requireStaff,
-  DocumentController.getCustomerDocuments
+  DocumentController.getUnionMemberDocuments
 );
 
 // Document serving route

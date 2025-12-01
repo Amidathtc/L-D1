@@ -8,7 +8,7 @@ import unionMemberRoutes from "./union-member.routes";
 import loanRoutes from "./loan.routes";
 import loanTypeRoutes from "./loanType.routes";
 import repaymentRoutes from "./repayment.routes";
-// import documentRoutes from "./document.routes";
+import documentRoutes from "./document.routes";
 import auditLogRoutes from "./auditLog.routes";
 import settingsRoutes from "./settings.routes";
 import userActivityRoutes from "./user-activity.routes";
@@ -28,7 +28,15 @@ router.get("/test", (req, res) => {
   res.json({
     message: "Main routes are working",
     timestamp: new Date().toISOString(),
-    availableRoutes: ["/auth", "/users", "/unions", "/union-members", "/branches", "/customers", "/loans"],
+    availableRoutes: [
+      "/auth",
+      "/users",
+      "/unions",
+      "/union-members",
+      "/branches",
+      "/customers",
+      "/loans",
+    ],
   });
 });
 
@@ -45,7 +53,7 @@ router.use("/union-members", unionMemberRoutes);
 router.use("/loans", loanRoutes);
 router.use("/loan-types", loanTypeRoutes);
 router.use("/repayments", repaymentRoutes);
-// router.use("/documents", documentRoutes);
+router.use("/documents", documentRoutes);
 router.use("/audit-logs", auditLogRoutes);
 router.use("/settings", settingsRoutes);
 router.use("/user-activity", userActivityRoutes);

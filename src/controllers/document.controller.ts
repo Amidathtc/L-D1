@@ -105,7 +105,7 @@ export class DocumentController {
     }
   }
 
-  static async uploadCustomerDocument(
+  static async uploadUnionMemberDocument(
     req: Request,
     res: Response,
     next: NextFunction
@@ -115,18 +115,18 @@ export class DocumentController {
         return ApiResponseUtil.error(res, "No file uploaded", 400);
       }
 
-      const { customerId } = req.params;
+      const { unionMemberId } = req.params;
       const { documentTypeId, issuingAuthority, issueDate, expiryDate } =
         req.body;
 
-      if (!customerId) {
-        return ApiResponseUtil.error(res, "Customer ID is required", 400);
+      if (!unionMemberId) {
+        return ApiResponseUtil.error(res, "Union Member ID is required", 400);
       }
 
       // Upload to Cloudinary or local storage
       const uploadResult = await handleDocumentUpload(
         req.file,
-        `documents/customers/${customerId}`
+        `documents/union-members/${unionMemberId}`
       );
 
       const metadata: {
@@ -147,8 +147,8 @@ export class DocumentController {
       if (issueDate) metadata.issueDate = new Date(issueDate);
       if (expiryDate) metadata.expiryDate = new Date(expiryDate);
 
-      const document = await DocumentService.uploadCustomerDocument(
-        customerId,
+      const document = await DocumentService.uploadUnionMemberDocument(
+        unionMemberId,
         documentTypeId,
         uploadResult.url,
         req.user!.id,
@@ -166,19 +166,21 @@ export class DocumentController {
     }
   }
 
-  static async getCustomerDocuments(
+  static async getUnionMemberDocuments(
     req: Request,
     res: Response,
     next: NextFunction
   ) {
     try {
-      const { customerId } = req.params;
+      const { unionMemberId } = req.params;
 
-      if (!customerId) {
-        return ApiResponseUtil.error(res, "Customer ID is required", 400);
+      if (!unionMemberId) {
+        return ApiResponseUtil.error(res, "Union Member ID is required", 400);
       }
 
-      const documents = await DocumentService.getCustomerDocuments(customerId);
+      const documents = await DocumentService.getUnionMemberDocuments(
+        unionMemberId
+      );
 
       return ApiResponseUtil.success(res, documents);
     } catch (error: any) {
@@ -276,11 +278,15 @@ export class DocumentController {
         return ApiResponseUtil.error(res, "Document ID is required", 400);
       }
 
-      if (type !== "customer" && type !== "loan") {
-        return ApiResponseUtil.error(res, "Invalid document type", 400);
+      if (type !== "unionMember" && type !== "loan") {
+        return ApiResponseUtil.error(
+          res,
+          "Invalid document type. Use 'unionMember' or 'loan'",
+          400
+        );
       }
 
-      await DocumentService.deleteDocument(id, type as "customer" | "loan");
+      await DocumentService.deleteDocument(id, type as "unionMember" | "loan");
 
       return ApiResponseUtil.success(
         res,
@@ -301,8 +307,12 @@ export class DocumentController {
         return ApiResponseUtil.error(res, "Document ID is required", 400);
       }
 
-      if (type !== "customer" && type !== "loan") {
-        return ApiResponseUtil.error(res, "Invalid document type", 400);
+      if (type !== "unionMember" && type !== "loan") {
+        return ApiResponseUtil.error(
+          res,
+          "Invalid document type. Use 'unionMember' or 'loan'",
+          400
+        );
       }
 
       const document = await DocumentService.verifyDocument(
