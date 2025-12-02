@@ -10,11 +10,11 @@ const memoryStorage = multer.memoryStorage();
 // Disk storage for local fallback (when Cloudinary is not available)
 const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const baseDir =
-      process.env.NODE_ENV === "production" ? "/var/data" : "uploads";
+    // Use config.upload.uploadDir which defaults to "uploads" or can be set via UPLOAD_DIR env var
+    const baseDir = config.upload.uploadDir;
     const uploadDir = req.path.includes("customer")
-      ? `${baseDir}/customer-documents`
-      : `${baseDir}/loan-documents`;
+      ? path.join(baseDir, "customer-documents")
+      : path.join(baseDir, "loan-documents");
 
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
