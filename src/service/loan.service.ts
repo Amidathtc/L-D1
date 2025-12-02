@@ -13,6 +13,7 @@ interface CreateLoanData {
   penaltyFeePerDayAmount: number;
   interestRate?: number;
   notes?: string;
+  assignedOfficerId?: string;
 }
 
 interface UpdateLoanData {
@@ -721,7 +722,9 @@ export class LoanService {
   ) {
     // Loan assignment feature has been deprecated in the new Union-based system
     // Loans are now assigned by union membership, not individual officers
-    throw new Error("Loan assignment has been deprecated. Use union-based access control instead.");
+    throw new Error(
+      "Loan assignment has been deprecated. Use union-based access control instead."
+    );
   }
 
   static async deleteLoan(

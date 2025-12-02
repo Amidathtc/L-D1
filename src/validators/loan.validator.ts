@@ -3,7 +3,7 @@ import { LoanStatus, TermUnit } from "@prisma/client";
 
 export const createLoanSchema = z.object({
   body: z.object({
-    customerId: z.string(),
+    unionMemberId: z.string(),
     loanTypeId: z.string().optional(),
     principalAmount: z.number().positive("Principal amount must be positive"),
     termCount: z
@@ -16,6 +16,7 @@ export const createLoanSchema = z.object({
     penaltyFeePerDayAmount: z.number().min(0),
     interestRate: z.number().min(0).max(100).optional(), // Annual interest rate percentage
     notes: z.string().optional(),
+    assignedOfficerId: z.string().optional(), // Credit officer assigned to the loan
   }),
 });
 
